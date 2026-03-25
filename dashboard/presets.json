@@ -1,0 +1,21 @@
+[
+  {
+    "label": "Default similarity search",
+    "config": {
+      "embedder_key": "azure_openai",
+      "retrieval_key": "similarity",
+      "vector_db_key": "qdrant"
+    }
+  },
+  {
+    "label": "Named collection: memory_chunks",
+    "config": {
+      "embedder_key": "azure_openai",
+      "retrieval_key": "similarity",
+      "vector_db_key": "qdrant",
+      "vector_db_kwargs": {
+        "collection_name": "memory_chunks"
+      }
+    }
+  }
+]

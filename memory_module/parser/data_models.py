@@ -1,5 +1,19 @@
-from typing import Optional
+from typing import Any, Literal, Optional
 from pydantic import BaseModel
+
+
+class ParsedSection(BaseModel):
+    title: Optional[str] = None
+    text: str
+    level: Optional[int] = None
+    metadata: dict[str, Any] | None = None
+
+
+class ParsedContent(BaseModel):
+    mode: Literal["text", "sections"]
+    text: str
+    sections: list[ParsedSection]
+
 
 class FileMetadata(BaseModel):
     """Minimal document metadata required for indexing."""
@@ -9,5 +23,5 @@ class FileMetadata(BaseModel):
 
 class DocumentParserResult(BaseModel):
     """Output contract for parser strategies."""
-    text: str
+    content: ParsedContent
     file_metadata: FileMetadata

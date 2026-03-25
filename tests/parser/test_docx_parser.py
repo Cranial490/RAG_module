@@ -26,8 +26,10 @@ def test_convert_returns_text_and_file_metadata(upload_docx):
 
     result = parser.convert(upload_docx)
 
-    assert "First paragraph" in result.text
-    assert "Second paragraph" in result.text
+    assert "First paragraph" in result.content.text
+    assert "Second paragraph" in result.content.text
+    assert result.content.mode == "text"
+    assert len(result.content.sections) == 1
     assert result.file_metadata.document_title == "sample"
     assert result.file_metadata.document_id.startswith("doc_")
 
@@ -63,3 +65,29 @@ def test_convert_document_id_changes_for_different_content():
 
     assert parser.convert(first).file_metadata.document_id != parser.convert(second).file_metadata.document_id
 
+
+def test_convert_builds_heading_aware_sections():
+    parser = DocxParser()
+    upload = make_upload_file(
+        "headings.docx",
+        build_docx_bytes(
+            [
+                ("Overview", "Heading 1"),
+                "Overview body",
+                ("Details", "Heading 2"),
+                "Detail body",
+            ]
+        ),
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    )
+
+    result = parser.convert(upload)
+
+    assert len(result.content.sections) == 2
+    assert result.content.mode == "sections"
+    assert result.content.sections[0].title == "Overview"
+    assert result.content.sections[0].text == "Overview body"
+    assert result.content.sections[0].level == 1
+    assert result.content.sections[1].title == "Details"
+    assert result.content.sections[1].text == "Detail body"
+    assert result.content.sections[1].level == 2

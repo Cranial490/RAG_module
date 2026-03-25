@@ -34,10 +34,31 @@ def test_chunker_generates_deterministic_chunk_ids(parsed_document):
     assert first[0].chunk_id == str(uuid5(NAMESPACE_URL, "doc_test_chunk_1"))
 
 
+def test_chunker_can_chunk_sections(parsed_document):
+    parsed_document.content.mode = "sections"
+    chunker = DocumentChunker(chunk_size=50, chunk_overlap=0, tokenizer="character")
+
+    chunks = chunker.chunk(parsed_document, {})
+
+    assert len(chunks) == 2
+    assert chunks[0].text == "alpha beta"
+    assert chunks[1].text == "gamma delta"
+
+
+def test_chunker_rejects_invalid_content_mode(parsed_document):
+    parsed_document.content.mode = "invalid"  # type: ignore[assignment]
+    chunker = DocumentChunker()
+
+    with pytest.raises(ValueError, match="Unsupported parsed content mode"):
+        chunker.chunk(parsed_document, {})
+
+
 def test_chunker_raises_when_parser_metadata_missing():
     chunker = DocumentChunker(chunk_size=5, chunk_overlap=0, tokenizer="character")
-    parsed_document = DocumentParserResult(text="hello", file_metadata=None)  # type: ignore[arg-type]
+    parsed_document = DocumentParserResult(  # type: ignore[arg-type]
+        content={"mode": "text", "text": "hello", "sections": []},
+        file_metadata=None,
+    )
 
     with pytest.raises(ValueError, match="requires parser file metadata"):
         chunker.chunk(parsed_document, {})
-

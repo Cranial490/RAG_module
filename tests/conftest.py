@@ -10,7 +10,7 @@ from fastapi import UploadFile
 from starlette.datastructures import Headers
 
 from memory_module.chunking.data_models import Chunk, ChunkMetadata
-from memory_module.parser.data_models import DocumentParserResult, FileMetadata
+from memory_module.parser.data_models import DocumentParserResult, FileMetadata, ParsedContent, ParsedSection
 
 
 def make_upload_file(
@@ -26,10 +26,14 @@ def make_upload_file(
     )
 
 
-def build_docx_bytes(paragraphs: list[str]) -> bytes:
+def build_docx_bytes(paragraphs: list[str | tuple[str, str]]) -> bytes:
     document = Document()
     for paragraph in paragraphs:
-        document.add_paragraph(paragraph)
+        if isinstance(paragraph, tuple):
+            text, style = paragraph
+            document.add_paragraph(text, style=style)
+        else:
+            document.add_paragraph(paragraph)
 
     output = BytesIO()
     document.save(output)
@@ -53,7 +57,14 @@ def upload_docx(docx_bytes: bytes) -> UploadFile:
 @pytest.fixture
 def parsed_document() -> DocumentParserResult:
     return DocumentParserResult(
-        text="alpha beta gamma delta",
+        content=ParsedContent(
+            mode="text",
+            text="alpha beta gamma delta",
+            sections=[
+                ParsedSection(title="Intro", text="alpha beta"),
+                ParsedSection(title="Body", text="gamma delta"),
+            ],
+        ),
         file_metadata=FileMetadata(
             document_id="doc_test",
             document_title="Sample Doc",
@@ -121,4 +132,3 @@ class StubVectorDB:
 
     def add_chunks(self, chunks: list[Chunk]):
         self.added_chunks = chunks
-

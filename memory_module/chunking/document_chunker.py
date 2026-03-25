@@ -31,9 +31,23 @@ class DocumentChunker(BaseChunker):
 
     def chunk(self, parsed_document: DocumentParserResult, metadata: Dict) -> List[Chunk]:
         chunk_metadata_input = self._build_chunk_metadata_input(parsed_document, metadata)
-        chunks = self.chunker.chunk(parsed_document.text or "")
         chunk_objects = []
-        for i, chunk in enumerate(chunks, start=1):
+
+        if parsed_document.content.mode == "text":
+            chunk_sources = self.chunker.chunk(parsed_document.content.text or "")
+        elif parsed_document.content.mode == "sections":
+            chunk_sources = []
+            for section in parsed_document.content.sections:
+                if not section.text:
+                    continue
+                chunk_sources.extend(self.chunker.chunk(section.text))
+        else:
+            raise ValueError(
+                f"Unsupported parsed content mode '{parsed_document.content.mode}'. "
+                "Supported values are 'text' and 'sections'."
+            )
+
+        for i, chunk in enumerate(chunk_sources, start=1):
             chunk_text = getattr(chunk, "text", str(chunk))
             chunk_metadata = self._generate_chunk_metadata(chunk_metadata_input)
             chunk_metadata.chunk_version = f"{chunk_metadata.document_id}_chunk_{i}"

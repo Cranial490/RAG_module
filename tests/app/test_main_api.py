@@ -77,11 +77,13 @@ def test_list_strategies_returns_all_components(monkeypatch):
     monkeypatch.setattr(main, "list_parsers", lambda: ["docx"])
     monkeypatch.setattr(main, "list_chunkers", lambda: ["document"])
     monkeypatch.setattr(main, "list_embedders", lambda: ["azure_openai"])
+    monkeypatch.setattr(main, "list_retrieval_strategies", lambda: ["similarity"])
     monkeypatch.setattr(main, "list_vector_dbs", lambda: ["qdrant"])
     main.STRATEGY_LISTERS = {
         "parsers": main.list_parsers,
         "chunkers": main.list_chunkers,
         "embedders": main.list_embedders,
+        "retrievals": main.list_retrieval_strategies,
         "vector_dbs": main.list_vector_dbs,
     }
 
@@ -102,6 +104,10 @@ def test_list_strategies_returns_all_components(monkeypatch):
             "selection_mode": "single",
             "strategies": ["azure_openai"],
         },
+        "retrievals": {
+            "selection_mode": "single",
+            "strategies": ["similarity"],
+        },
         "vector_dbs": {
             "selection_mode": "single",
             "strategies": ["qdrant"],
@@ -115,6 +121,7 @@ def test_list_strategies_for_component(monkeypatch):
         "parsers": main.list_parsers,
         "chunkers": main.list_chunkers,
         "embedders": main.list_embedders,
+        "retrievals": main.list_retrieval_strategies,
         "vector_dbs": main.list_vector_dbs,
     }
 
@@ -135,6 +142,15 @@ def test_list_strategies_for_unknown_component():
 
     assert response.status_code == 404
     assert "Unknown strategy component" in response.json()["detail"]
+
+
+def test_dashboard_route_serves_html():
+    client = TestClient(main.app)
+    response = client.get("/dashboard")
+
+    assert response.status_code == 200
+    assert "text/html" in response.headers["content-type"]
+    assert "Retrieval Dashboard" in response.text
 
 
 def test_index_endpoint_rejects_invalid_config_json():

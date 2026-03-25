@@ -1,14 +1,14 @@
 import pytest
 
 from memory_module.chunking.data_models import Chunk, ChunkMetadata
-from memory_module.parser.data_models import DocumentParserResult, FileMetadata
+from memory_module.parser.data_models import DocumentParserResult, FileMetadata, ParsedContent
 from memory_module.rag_pipeline import RAGPipeline
 from tests.conftest import StubChunker, StubEmbedder, StubParser, StubVectorDB
 
 
 def test_indexer_calls_components_in_order(upload_docx):
     parsed_document = DocumentParserResult(
-        text="hello world",
+        content=ParsedContent(mode="text", text="hello world", sections=[]),
         file_metadata=FileMetadata(document_id="doc_1", document_title="Doc 1"),
     )
     chunks = [
@@ -39,7 +39,7 @@ def test_indexer_calls_components_in_order(upload_docx):
 
 def test_indexer_flattens_batch_embedding(upload_docx):
     parsed_document = DocumentParserResult(
-        text="hello world",
+        content=ParsedContent(mode="text", text="hello world", sections=[]),
         file_metadata=FileMetadata(document_id="doc_1", document_title="Doc 1"),
     )
     chunks = [
@@ -122,7 +122,7 @@ def test_indexer_raises_when_parser_rejects(upload_docx):
     pipeline = RAGPipeline({})
     pipeline.parser = StubParser(
         DocumentParserResult(
-            text="ignored",
+            content=ParsedContent(mode="text", text="ignored", sections=[]),
             file_metadata=FileMetadata(document_id="doc_1", document_title="Doc 1"),
         ),
         accepts=False,

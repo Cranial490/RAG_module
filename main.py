@@ -1,17 +1,23 @@
 import json
+from pathlib import Path
 from typing import Any
 
 from fastapi import FastAPI, File, Form, HTTPException, UploadFile
+from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 from memory_module.factory.chunking_factory import list_chunkers
 from memory_module.factory.embedder_factory import list_embedders
 from memory_module.factory.parser_factory import list_parsers
+from memory_module.factory.retrieval_factory import list_retrieval_strategies
 from memory_module.factory.vector_db_factory import list_vector_dbs
 from memory_module.rag_pipeline import RAGPipeline
 
 
 app = FastAPI()
+BASE_DIR = Path(__file__).resolve().parent
+DASHBOARD_DIR = BASE_DIR / "dashboard"
 
 
 class RetrieveRequest(BaseModel):
@@ -23,8 +29,20 @@ STRATEGY_LISTERS = {
     "parsers": list_parsers,
     "chunkers": list_chunkers,
     "embedders": list_embedders,
+    "retrievals": list_retrieval_strategies,
     "vector_dbs": list_vector_dbs,
 }
+
+app.mount(
+    "/dashboard/assets",
+    StaticFiles(directory=DASHBOARD_DIR),
+    name="dashboard-assets",
+)
+
+
+@app.get("/dashboard")
+async def serve_dashboard():
+    return FileResponse(DASHBOARD_DIR / "index.html")
 
 
 @app.get("/strategies")
