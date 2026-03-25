@@ -1,11 +1,7 @@
-from __future__ import annotations
-
-from datetime import datetime
 from typing import Any
-from uuid import uuid4
+from fastapi import UploadFile
 
 from .chunking.base_chunker import BaseChunker
-from .chunking.data_models import ChunkMetadata
 from .embedder.base_embedder import BaseEmbedder
 from .factory.chunking_factory import get_chunker
 from .factory.embedder_factory import get_embedder
@@ -66,7 +62,13 @@ class RAGPipeline:
         strategy_key = self.config.get(f"{base_key}_key")
         if strategy_key is None:
             return None
+        if not isinstance(strategy_key, str):
+            raise TypeError(
+                f"{base_key}_key must be a string. Only one {component_name} strategy "
+                "can be selected at a time."
+            )
 
+        #buid the params for the class
         kwargs_key = f"{base_key}_kwargs"
         strategy_kwargs = self.config.get(kwargs_key, {})
         if not isinstance(strategy_kwargs, dict):
@@ -88,7 +90,7 @@ class RAGPipeline:
                 f"'{strategy_key}': {error_message}"
             ) from exc
 
-    def indexer(self, document, metadata: dict[str, Any] | None = None):
+    def indexer(self, document: UploadFile, metadata: dict[str, Any] | None = None):
         if self.parser is None:
             raise RuntimeError("Indexer requires a parser strategy.")
         if self.chunker is None:
@@ -105,51 +107,38 @@ class RAGPipeline:
             if parser_error:
                 raise ValueError(f"Parser rejected the provided document: {parser_error}")
             raise ValueError("Parser does not accept the provided document.")
-        if hasattr(document, "file") and hasattr(document.file, "seek"):
-            document.file.seek(0)
 
         parsed_document = self.parser.convert(document)
-        parser_metadata = parsed_document.file_metadata
         chunks = self.chunker.chunk(parsed_document, metadata or {})
-        normalized_chunks = []
 
-        for index, chunk in enumerate(chunks, start=1):
-            text = getattr(chunk, "text", str(chunk))
-            embedding = self.embedder.embed(text)
+        for chunk in chunks:
+            embedding = self.embedder.embed(chunk.text)
             if embedding and isinstance(embedding[0], list):
                 embedding = embedding[0]
-
-            resolved_metadata = getattr(chunk, "metadata", None)
-            if resolved_metadata is None:
-                resolved_metadata = ChunkMetadata(
-                    document_id=(
-                        parser_metadata.doc_id if parser_metadata is not None else str(uuid4())
-                    ),
-                    document_title=(
-                        parser_metadata.document_title if parser_metadata is not None else None
-                    ),
-                    chunk_version=(
-                        f"{parser_metadata.doc_id}_chunk_{index}"
-                        if parser_metadata is not None
-                        else f"chunk_{index}"
-                    ),
-                    created_at=datetime.now(),
-                )
-
-            existing_chunk_id = getattr(chunk, "chunk_id", None)
-            if not existing_chunk_id:
-                chunk.chunk_id = str(uuid4())
-            else:
-                chunk.chunk_id = str(existing_chunk_id)
-
-            if not resolved_metadata.chunk_version:
-                resolved_metadata.chunk_version = (
-                    f"{resolved_metadata.document_id}_chunk_{index}"
-                )
-            chunk.text = text
             chunk.embedding = embedding
-            chunk.metadata = resolved_metadata
-            normalized_chunks.append(chunk)
 
-        self.vector_db.add_chunks(normalized_chunks)
-        return normalized_chunks
+        self.vector_db.add_chunks(chunks)
+        return chunks
+
+    def retrieve(
+        self,
+        query: str,
+        top_k: int = 5,
+        filters: dict[str, Any] | None = None,
+    ):
+        if self.embedder is None:
+            raise RuntimeError("Retrieve requires an embedder strategy.")
+        if self.retriever is None:
+            raise RuntimeError("Retrieve requires a retrieval strategy.")
+        if not isinstance(query, str) or not query.strip():
+            raise ValueError("Retrieve requires a non-empty query string.")
+
+        embedded_query = self.embedder.embed(query)
+        if embedded_query and isinstance(embedded_query[0], list):
+            embedded_query = embedded_query[0]
+
+        return self.retriever.retrieve(
+            embedded_query=embedded_query,
+            top_k=top_k,
+            filters=filters,
+        )

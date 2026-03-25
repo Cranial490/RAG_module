@@ -41,9 +41,9 @@ class AzureEmbeddingGenerator(BaseEmbedder):
             base_url=self.base_url,
         )
 
-    def embed(self, text: str) -> List[float]:
+    def embed(self, text: str) -> List[List[float]]:
         """
-        Generates embeddings for a string or list of strings.
+        Generates embeddings for a string.
         """
         response = self.client.embeddings.create(
             model=self.model,

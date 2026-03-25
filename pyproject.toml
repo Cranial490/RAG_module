@@ -5,13 +5,16 @@ description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
+    "aiofiles>=25.1.0",
     "chonkie>=1.1.1",
     "docling>=2.52.0",
     "fastapi>=0.116.1",
     "filetype>=1.2.0",
+    "httpx>=0.28.1",
     "ipdb>=0.13.13",
     "numpy>=2.3.1",
     "openai>=2.29.0",
+    "pytest>=8.4.1",
     "python-dotenv>=1.1.1",
     "python-multipart>=0.0.20",
     "qdrant-client>=1.14.3",

@@ -5,8 +5,6 @@ import os
 from dotenv import load_dotenv
 from qdrant_client import QdrantClient
 from qdrant_client.models import Distance, VectorParams, PointStruct, Filter, FieldCondition, MatchValue
-from qdrant_client.http.exceptions import UnexpectedResponse
-
 from .base_vector_db import BaseVectorMemory
 from ..chunking.data_models import Chunk, ChunkMetadata
 
@@ -101,8 +99,8 @@ class QdrantVectorMemory(BaseVectorMemory):
                 vector=chunk.embedding,
                 payload={
                     "text": chunk.text,
-                    "metadata": chunk.metadata.dict(),
-                    "created_at": chunk.metadata.created_at.isoformat()
+                    "metadata": chunk.metadata.model_dump(),
+                    "token_count": chunk.token_count,
                 }
             )
             points.append(point)
@@ -178,26 +176,20 @@ class QdrantVectorMemory(BaseVectorMemory):
                 payload = result.payload
                 text = payload.get("text", "")
                 metadata_dict = payload.get("metadata", {})
-                created_at_str = payload.get("created_at")
-                
-                # Parse timestamp
-                try:
-                    created_at = datetime.fromisoformat(created_at_str)
-                except (ValueError, TypeError):
-                    created_at = datetime.utcnow()
+                created_at_value = metadata_dict.get("created_at")
+                created_at = datetime.now()
+                if isinstance(created_at_value, str):
+                    try:
+                        created_at = datetime.fromisoformat(created_at_value)
+                    except ValueError:
+                        created_at = datetime.utcnow()
                 
                 # Create ChunkMetadata
                 metadata = ChunkMetadata(
                     document_id=metadata_dict.get("document_id", ""),
                     document_title=metadata_dict.get("document_title"),
-                    section=metadata_dict.get("section"),
-                    source_url=metadata_dict.get("source_url"),
-                    published_at=metadata_dict.get("published_at"),
                     created_at=created_at,
-                    updated_at=metadata_dict.get("updated_at"),
                     tags=metadata_dict.get("tags"),
-                    tenant_id=metadata_dict.get("tenant_id"),
-                    permissions=metadata_dict.get("permissions"),
                     chunk_version=metadata_dict.get("chunk_version")
                 )
                 
@@ -205,14 +197,9 @@ class QdrantVectorMemory(BaseVectorMemory):
                 chunk = Chunk(
                     chunk_id=str(result.id),
                     text=text,
-                    embedding=result.vector,
+                    embedding=result.vector or [],
                     metadata=metadata,
-                    token_count=metadata_dict.get("token_count"),
-                    overlap_with_previous=metadata_dict.get("overlap_with_previous"),
-                    source_rank_score=metadata_dict.get("source_rank_score"),
-                    is_deleted=metadata_dict.get("is_deleted", False),
-                    is_verified=metadata_dict.get("is_verified"),
-                    context_summary=metadata_dict.get("context_summary")
+                    token_count=payload.get("token_count"),
                 )
                 chunks.append(chunk)
             

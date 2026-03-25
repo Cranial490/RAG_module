@@ -1,5 +1,5 @@
-from typing import List, Dict
-from uuid import uuid4
+from typing import Dict, List
+from uuid import NAMESPACE_URL, uuid5
 
 from chonkie import TokenChunker
 
@@ -31,23 +31,18 @@ class DocumentChunker(BaseChunker):
 
     def chunk(self, parsed_document: DocumentParserResult, metadata: Dict) -> List[Chunk]:
         chunk_metadata_input = self._build_chunk_metadata_input(parsed_document, metadata)
-        chunks = self.chunker.chunk(parsed_document.content.get("text", ""))
+        chunks = self.chunker.chunk(parsed_document.text or "")
         chunk_objects = []
         for i, chunk in enumerate(chunks, start=1):
             chunk_text = getattr(chunk, "text", str(chunk))
             chunk_metadata = self._generate_chunk_metadata(chunk_metadata_input)
             chunk_metadata.chunk_version = f"{chunk_metadata.document_id}_chunk_{i}"
             chunk = Chunk(
-                chunk_id=str(uuid4()),
+                chunk_id=self._build_chunk_id(chunk_metadata.chunk_version),
                 text=chunk_text,
                 embedding=[],
                 metadata=chunk_metadata,
                 token_count=len(chunk_text),
-                overlap_with_previous=self.chunk_overlap if i > 1 else 0,
-                source_rank_score=None,
-                is_deleted=False,
-                is_verified=None,
-                context_summary=None,
             )
             chunk_objects.append(chunk)
         return chunk_objects
@@ -58,24 +53,19 @@ class DocumentChunker(BaseChunker):
         metadata: Dict,
     ) -> Dict:
         parser_metadata = parsed_document.file_metadata
-        chunk_metadata_input = dict(metadata or {})
+        if parser_metadata is None:
+            raise ValueError("DocumentChunker requires parser file metadata.")
 
-        if parser_metadata is not None:
-            chunk_metadata_input.setdefault("document_id", parser_metadata.doc_id)
-            chunk_metadata_input.setdefault(
-                "document_title",
-                parser_metadata.document_title,
-            )
-            additional_info = parser_metadata.additional_info or {}
-            chunk_metadata_input.setdefault("source_url", additional_info.get("source_url"))
-            chunk_metadata_input.setdefault("section", additional_info.get("section"))
-            chunk_metadata_input.setdefault("tags", additional_info.get("tags"))
-            chunk_metadata_input.setdefault("tenant_id", additional_info.get("tenant_id"))
-            chunk_metadata_input.setdefault("permissions", additional_info.get("permissions"))
+        chunk_metadata_input = {
+            "document_id": parser_metadata.document_id,
+            "document_title": parser_metadata.document_title,
+        }
 
-        if "document_id" not in chunk_metadata_input:
-            chunk_metadata_input["document_id"] = str(uuid4())
-        if "document_title" not in chunk_metadata_input:
-            chunk_metadata_input["document_title"] = None
+        caller_tags = (metadata or {}).get("tags")
+        if caller_tags is not None:
+            chunk_metadata_input["tags"] = caller_tags
 
         return chunk_metadata_input
+
+    def _build_chunk_id(self, chunk_version: str) -> str:
+        return str(uuid5(NAMESPACE_URL, chunk_version))

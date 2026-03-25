@@ -77,7 +77,6 @@ def main() -> int:
                 "chunker": pipeline.chunker is not None,
                 "embedder": pipeline.embedder is not None,
                 "vector_db": pipeline.vector_db is not None,
-                "retriever": pipeline.retriever is not None,
                 "document_path": str(document_path),
                 "chunks_indexed": len(chunks),
                 "chunk_ids": [chunk.chunk_id for chunk in chunks],

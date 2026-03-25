@@ -3,7 +3,6 @@ from typing import Any, Dict, List, Optional
 from ..chunking.data_models import Chunk
 from .base_retrieval import BaseRetrievalStrategy
 
-
 class SimilarityRetrievalStrategy(BaseRetrievalStrategy):
     def retrieve(
         self,

@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from typing import List, Dict
+from typing import Dict, List
 
 from .data_models import ChunkMetadata, Chunk
 from ..parser.data_models import DocumentParserResult
