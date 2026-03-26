@@ -15,6 +15,27 @@ The real value is not just that it works once. The value is that each stage is s
 
 If you are building internal search, document QA, semantic memory, or domain-specific RAG systems, this project gives you a clean way to change one stage without rewriting the rest of the pipeline.
 
+## Environment Setup
+
+Create a local `.env` file from [`.env.sample`](/Users/pranjalpaliwal/Desktop/Projects/Current/test-repo/qdrant-vectordb/.env.sample) before running indexing or retrieval with the default Azure embedder and Qdrant setup.
+
+Example:
+
+```bash
+cp .env.sample .env
+```
+
+Variables used by the current implementation:
+
+- `AZURE_EMBEDDER_API_KEY`: API key for the Azure OpenAI embedding deployment
+- `AZURE_EMBEDDER_URL`: base URL for the Azure OpenAI endpoint
+- `AZURE_EMBEDDER_MODEL`: embedding model or deployment name used by the embedder
+- `QDRANT_URL`: Qdrant server URL, defaulting to `http://localhost:6333` if omitted
+- `QDRANT_API_KEY`: optional API key for secured Qdrant instances
+- `QDRANT_COLLECTION`: optional helper value used by `smoke-test.py`
+
+If you are running Qdrant locally with Docker, the default `QDRANT_URL` is usually enough.
+
 ## Why This Exists
 
 Most RAG systems start as a script:
