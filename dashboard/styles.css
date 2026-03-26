@@ -73,6 +73,33 @@ h1 {
   backdrop-filter: blur(10px);
 }
 
+.tab-bar {
+  display: flex;
+  gap: 10px;
+  margin-top: 8px;
+}
+
+.tab-button {
+  border: 1px solid rgba(61, 48, 31, 0.16);
+  padding: 11px 16px;
+  border-radius: 999px;
+  background: rgba(255, 252, 247, 0.72);
+  color: var(--text);
+}
+
+.tab-button.active {
+  background: var(--accent);
+  color: #fff8f1;
+}
+
+.tab-panel {
+  display: none;
+}
+
+.tab-panel.active {
+  display: block;
+}
+
 .panel-header {
   display: flex;
   align-items: center;

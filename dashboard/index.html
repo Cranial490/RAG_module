@@ -12,14 +12,19 @@
       <p class="eyebrow">Qdrant Retrieval Dashboard</p>
       <h1>Pick a config and inspect retrieval results.</h1>
       <p class="lede">
-        Select a saved config, adjust the request payload if needed, and run `/retrieve`
-        without building a separate client.
+        Switch between indexing and retrieval, select strategies from dropdowns, and
+        exercise the API without building a separate client.
       </p>
     </section>
 
-    <section class="panel">
+    <section class="tab-bar" aria-label="Dashboard modes">
+      <button id="retrieval-tab" class="tab-button active" type="button" data-tab="retrieval">Retrieval</button>
+      <button id="indexing-tab" class="tab-button" type="button" data-tab="indexing">Indexing</button>
+    </section>
+
+    <section class="panel tab-panel active" id="retrieval-panel">
       <div class="panel-header">
-        <h2>Request</h2>
+        <h2>Retrieval Request</h2>
         <span id="status-badge" class="status-badge">Loading strategies</span>
       </div>
 
@@ -80,6 +85,59 @@
       </div>
     </section>
 
+    <section class="panel tab-panel" id="indexing-panel">
+      <div class="panel-header">
+        <h2>Index Document</h2>
+        <span id="index-status-badge" class="status-badge">Ready</span>
+      </div>
+
+      <div class="grid">
+        <label class="field">
+          <span>Saved config</span>
+          <select id="index-config-select"></select>
+        </label>
+
+        <label class="field">
+          <span>Parser</span>
+          <select id="index-parser-select"></select>
+        </label>
+
+        <label class="field">
+          <span>Chunker</span>
+          <select id="index-chunker-select"></select>
+        </label>
+
+        <label class="field">
+          <span>Embedder</span>
+          <select id="index-embedder-select"></select>
+        </label>
+
+        <label class="field">
+          <span>Vector DB</span>
+          <select id="index-vector-db-select"></select>
+        </label>
+
+        <label class="field field-wide">
+          <span>Document</span>
+          <input id="document-input" type="file" />
+        </label>
+
+        <label class="field field-wide">
+          <span>Metadata JSON</span>
+          <textarea id="metadata-input" rows="6" placeholder='{"document_id": "doc-1", "tags": ["clinical"]}'></textarea>
+        </label>
+
+        <label class="field field-wide">
+          <span>Config JSON</span>
+          <textarea id="index-config-input" rows="14"></textarea>
+        </label>
+      </div>
+
+      <div class="actions">
+        <button id="index-button" type="button">Upload And Index</button>
+      </div>
+    </section>
+
     <section class="panel">
       <div class="panel-header">
         <h2>Available strategies</h2>
@@ -92,6 +150,13 @@
         <h2>Results</h2>
       </div>
       <pre id="results-output" class="code-block">Run a query to see results.</pre>
+    </section>
+
+    <section class="panel">
+      <div class="panel-header">
+        <h2>Indexing Response</h2>
+      </div>
+      <pre id="index-results-output" class="code-block">Upload a document to see indexing results.</pre>
     </section>
   </main>
 

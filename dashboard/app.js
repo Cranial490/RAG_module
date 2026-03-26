@@ -1,24 +1,39 @@
-const configSelect = document.getElementById("config-select");
-const parserSelect = document.getElementById("parser-select");
-const chunkerSelect = document.getElementById("chunker-select");
-const embedderSelect = document.getElementById("embedder-select");
-const retrievalSelect = document.getElementById("retrieval-select");
-const vectorDbSelect = document.getElementById("vector-db-select");
-const queryInput = document.getElementById("query-input");
-const topKInput = document.getElementById("top-k-input");
-const filtersInput = document.getElementById("filters-input");
-const configInput = document.getElementById("config-input");
 const strategyOutput = document.getElementById("strategy-output");
 const resultsOutput = document.getElementById("results-output");
+const indexResultsOutput = document.getElementById("index-results-output");
 const runButton = document.getElementById("run-button");
-const statusBadge = document.getElementById("status-badge");
+const indexButton = document.getElementById("index-button");
+const retrievalStatusBadge = document.getElementById("status-badge");
+const indexStatusBadge = document.getElementById("index-status-badge");
+const retrievalTab = document.getElementById("retrieval-tab");
+const indexingTab = document.getElementById("indexing-tab");
+const retrievalPanel = document.getElementById("retrieval-panel");
+const indexingPanel = document.getElementById("indexing-panel");
 
-const strategySelectMap = {
-  parser_key: parserSelect,
-  chunker_key: chunkerSelect,
-  embedder_key: embedderSelect,
-  retrieval_key: retrievalSelect,
-  vector_db_key: vectorDbSelect,
+const formDefinitions = {
+  retrieval: {
+    configSelect: document.getElementById("config-select"),
+    configInput: document.getElementById("config-input"),
+    statusBadge: retrievalStatusBadge,
+    strategySelects: {
+      parser_key: document.getElementById("parser-select"),
+      chunker_key: document.getElementById("chunker-select"),
+      embedder_key: document.getElementById("embedder-select"),
+      retrieval_key: document.getElementById("retrieval-select"),
+      vector_db_key: document.getElementById("vector-db-select"),
+    },
+  },
+  indexing: {
+    configSelect: document.getElementById("index-config-select"),
+    configInput: document.getElementById("index-config-input"),
+    statusBadge: indexStatusBadge,
+    strategySelects: {
+      parser_key: document.getElementById("index-parser-select"),
+      chunker_key: document.getElementById("index-chunker-select"),
+      embedder_key: document.getElementById("index-embedder-select"),
+      vector_db_key: document.getElementById("index-vector-db-select"),
+    },
+  },
 };
 
 const strategyResponseMap = {
@@ -29,21 +44,26 @@ const strategyResponseMap = {
   vector_db_key: "vector_dbs",
 };
 
+const retrievalQueryInput = document.getElementById("query-input");
+const retrievalTopKInput = document.getElementById("top-k-input");
+const filtersInput = document.getElementById("filters-input");
+const metadataInput = document.getElementById("metadata-input");
+const documentInput = document.getElementById("document-input");
+
 let presets = [];
 let currentStrategies = {};
-let isSyncingForm = false;
+const syncState = {
+  retrieval: false,
+  indexing: false,
+};
 
-function setStatus(message, variant = "") {
-  statusBadge.textContent = message;
-  statusBadge.className = `status-badge ${variant}`.trim();
+function setStatus(badge, message, variant = "") {
+  badge.textContent = message;
+  badge.className = `status-badge ${variant}`.trim();
 }
 
 function formatJson(value) {
   return JSON.stringify(value, null, 2);
-}
-
-function getSelectedPreset() {
-  return presets[Number(configSelect.value)] ?? presets[0];
 }
 
 function parseJsonField(rawValue, fieldName) {
@@ -57,6 +77,11 @@ function parseJsonField(rawValue, fieldName) {
   } catch (error) {
     throw new Error(`${fieldName} must be valid JSON: ${error.message}`);
   }
+}
+
+function getSelectedPreset(formKey) {
+  const form = formDefinitions[formKey];
+  return presets[Number(form.configSelect.value)] ?? presets[0];
 }
 
 function fillSelectOptions(selectElement, values) {
@@ -75,23 +100,38 @@ function fillSelectOptions(selectElement, values) {
   });
 }
 
-function populateStrategySelects(strategies) {
-  Object.entries(strategySelectMap).forEach(([configKey, selectElement]) => {
-    const strategyGroup = strategies[strategyResponseMap[configKey]];
+function populateStrategySelects(formKey) {
+  const form = formDefinitions[formKey];
+  Object.entries(form.strategySelects).forEach(([configKey, selectElement]) => {
+    const strategyGroup = currentStrategies[strategyResponseMap[configKey]];
     fillSelectOptions(selectElement, strategyGroup?.strategies ?? []);
   });
 }
 
-function updateConfigEditorFromSelections() {
+function syncSelectionsFromConfig(formKey, config) {
+  const form = formDefinitions[formKey];
+  syncState[formKey] = true;
+
+  Object.entries(form.strategySelects).forEach(([configKey, selectElement]) => {
+    const selectedValue = typeof config?.[configKey] === "string" ? config[configKey] : "";
+    const allowedValues = currentStrategies[strategyResponseMap[configKey]]?.strategies ?? [];
+    selectElement.value = allowedValues.includes(selectedValue) ? selectedValue : "";
+  });
+
+  syncState[formKey] = false;
+}
+
+function updateConfigEditorFromSelections(formKey) {
+  const form = formDefinitions[formKey];
   let parsedConfig;
 
   try {
-    parsedConfig = parseJsonField(configInput.value, "Config") ?? {};
+    parsedConfig = parseJsonField(form.configInput.value, "Config") ?? {};
   } catch {
     parsedConfig = {};
   }
 
-  Object.entries(strategySelectMap).forEach(([configKey, selectElement]) => {
+  Object.entries(form.strategySelects).forEach(([configKey, selectElement]) => {
     if (selectElement.value) {
       parsedConfig[configKey] = selectElement.value;
     } else {
@@ -99,44 +139,68 @@ function updateConfigEditorFromSelections() {
     }
   });
 
-  configInput.value = formatJson(parsedConfig);
+  form.configInput.value = formatJson(parsedConfig);
 }
 
-function syncSelectionsFromConfig(config) {
-  isSyncingForm = true;
-
-  Object.entries(strategySelectMap).forEach(([configKey, selectElement]) => {
-    const selectedValue = typeof config?.[configKey] === "string" ? config[configKey] : "";
-    const availableValues = currentStrategies[strategyResponseMap[configKey]]?.strategies ?? [];
-    selectElement.value = availableValues.includes(selectedValue) ? selectedValue : "";
-  });
-
-  isSyncingForm = false;
-}
-
-function applyPresetToForm() {
-  const preset = getSelectedPreset();
+function applyPresetToForm(formKey) {
+  const form = formDefinitions[formKey];
+  const preset = getSelectedPreset(formKey);
   const config = structuredClone(preset?.config ?? {});
-  configInput.value = formatJson(config);
-  syncSelectionsFromConfig(config);
+
+  if (formKey === "indexing") {
+    delete config.retrieval_key;
+    delete config.retrieval_kwargs;
+  }
+
+  form.configInput.value = formatJson(config);
+  syncSelectionsFromConfig(formKey, config);
 }
 
-function syncConfigFromEditor() {
-  if (isSyncingForm) {
+function syncConfigFromEditor(formKey) {
+  if (syncState[formKey]) {
     return;
   }
 
+  const form = formDefinitions[formKey];
+
   try {
-    const config = parseJsonField(configInput.value, "Config") ?? {};
-    syncSelectionsFromConfig(config);
-    setStatus("Ready", "success");
-  } catch (error) {
-    setStatus("Invalid config JSON", "error");
+    const config = parseJsonField(form.configInput.value, "Config") ?? {};
+    syncSelectionsFromConfig(formKey, config);
+    setStatus(form.statusBadge, "Ready", "success");
+  } catch {
+    setStatus(form.statusBadge, "Invalid config JSON", "error");
   }
 }
 
+function initializeFormSelectors() {
+  Object.keys(formDefinitions).forEach((formKey) => {
+    const form = formDefinitions[formKey];
+
+    populateStrategySelects(formKey);
+
+    form.configSelect.innerHTML = "";
+    presets.forEach((preset, index) => {
+      const option = document.createElement("option");
+      option.value = String(index);
+      option.textContent = preset.label;
+      form.configSelect.appendChild(option);
+    });
+
+    applyPresetToForm(formKey);
+  });
+}
+
+function activateTab(tabName) {
+  const isRetrieval = tabName === "retrieval";
+  retrievalTab.classList.toggle("active", isRetrieval);
+  indexingTab.classList.toggle("active", !isRetrieval);
+  retrievalPanel.classList.toggle("active", isRetrieval);
+  indexingPanel.classList.toggle("active", !isRetrieval);
+}
+
 async function loadDashboardData() {
-  setStatus("Loading strategies");
+  setStatus(retrievalStatusBadge, "Loading strategies");
+  setStatus(indexStatusBadge, "Loading strategies");
 
   const [strategyResponse, presetResponse] = await Promise.all([
     fetch("/strategies"),
@@ -154,24 +218,15 @@ async function loadDashboardData() {
   presets = await presetResponse.json();
 
   strategyOutput.textContent = formatJson(currentStrategies);
-  populateStrategySelects(currentStrategies);
-
-  configSelect.innerHTML = "";
-  presets.forEach((preset, index) => {
-    const option = document.createElement("option");
-    option.value = String(index);
-    option.textContent = preset.label;
-    configSelect.appendChild(option);
-  });
-
-  applyPresetToForm();
-  setStatus("Ready", "success");
+  initializeFormSelectors();
+  setStatus(retrievalStatusBadge, "Ready", "success");
+  setStatus(indexStatusBadge, "Ready", "success");
 }
 
 async function runRetrieval() {
-  const query = queryInput.value.trim();
+  const query = retrievalQueryInput.value.trim();
   if (!query) {
-    setStatus("Query is required", "error");
+    setStatus(retrievalStatusBadge, "Query is required", "error");
     resultsOutput.textContent = "Enter a query before running retrieval.";
     return;
   }
@@ -180,20 +235,20 @@ async function runRetrieval() {
   let parsedFilters;
 
   try {
-    updateConfigEditorFromSelections();
-    parsedConfig = parseJsonField(configInput.value, "Config") ?? {};
+    updateConfigEditorFromSelections("retrieval");
+    parsedConfig = parseJsonField(formDefinitions.retrieval.configInput.value, "Config") ?? {};
     parsedFilters = parseJsonField(filtersInput.value, "Filters");
   } catch (error) {
-    setStatus("Invalid JSON", "error");
+    setStatus(retrievalStatusBadge, "Invalid JSON", "error");
     resultsOutput.textContent = error.message;
     return;
   }
 
-  setStatus("Running retrieval");
+  setStatus(retrievalStatusBadge, "Running retrieval");
   resultsOutput.textContent = "Loading...";
 
   const response = await fetch(
-    `/retrieve?query=${encodeURIComponent(query)}&top_k=${encodeURIComponent(topKInput.value || "5")}`,
+    `/retrieve?query=${encodeURIComponent(query)}&top_k=${encodeURIComponent(retrievalTopKInput.value || "5")}`,
     {
       method: "POST",
       headers: {
@@ -210,31 +265,102 @@ async function runRetrieval() {
   resultsOutput.textContent = formatJson(body);
 
   if (!response.ok) {
-    setStatus("Request failed", "error");
+    setStatus(retrievalStatusBadge, "Request failed", "error");
     return;
   }
 
-  setStatus(`Received ${Array.isArray(body) ? body.length : 0} result(s)`, "success");
+  setStatus(
+    retrievalStatusBadge,
+    `Received ${Array.isArray(body) ? body.length : 0} result(s)`,
+    "success",
+  );
 }
 
-configSelect.addEventListener("change", applyPresetToForm);
-configInput.addEventListener("input", syncConfigFromEditor);
-Object.values(strategySelectMap).forEach((selectElement) => {
-  selectElement.addEventListener("change", () => {
-    updateConfigEditorFromSelections();
-    setStatus("Ready", "success");
+async function runIndexing() {
+  const selectedFile = documentInput.files?.[0];
+  if (!selectedFile) {
+    setStatus(indexStatusBadge, "Document is required", "error");
+    indexResultsOutput.textContent = "Choose a document before indexing.";
+    return;
+  }
+
+  let parsedConfig;
+  let parsedMetadata;
+
+  try {
+    updateConfigEditorFromSelections("indexing");
+    parsedConfig = parseJsonField(formDefinitions.indexing.configInput.value, "Config") ?? {};
+    parsedMetadata = parseJsonField(metadataInput.value, "Metadata");
+  } catch (error) {
+    setStatus(indexStatusBadge, "Invalid JSON", "error");
+    indexResultsOutput.textContent = error.message;
+    return;
+  }
+
+  const formData = new FormData();
+  formData.append("config", JSON.stringify(parsedConfig));
+  formData.append("file", selectedFile);
+  if (parsedMetadata) {
+    formData.append("metadata", JSON.stringify(parsedMetadata));
+  }
+
+  setStatus(indexStatusBadge, "Uploading document");
+  indexResultsOutput.textContent = "Loading...";
+
+  const response = await fetch("/index", {
+    method: "POST",
+    body: formData,
+  });
+
+  const body = await response.json().catch(() => ({}));
+  indexResultsOutput.textContent = formatJson(body);
+
+  if (!response.ok) {
+    setStatus(indexStatusBadge, "Indexing failed", "error");
+    return;
+  }
+
+  setStatus(
+    indexStatusBadge,
+    `Indexed ${body.chunks_indexed ?? 0} chunk(s)`,
+    "success",
+  );
+}
+
+retrievalTab.addEventListener("click", () => activateTab("retrieval"));
+indexingTab.addEventListener("click", () => activateTab("indexing"));
+
+Object.entries(formDefinitions).forEach(([formKey, form]) => {
+  form.configSelect.addEventListener("change", () => applyPresetToForm(formKey));
+  form.configInput.addEventListener("input", () => syncConfigFromEditor(formKey));
+
+  Object.values(form.strategySelects).forEach((selectElement) => {
+    selectElement.addEventListener("change", () => {
+      updateConfigEditorFromSelections(formKey);
+      setStatus(form.statusBadge, "Ready", "success");
+    });
   });
 });
 
 runButton.addEventListener("click", () => {
   runRetrieval().catch((error) => {
-    setStatus("Unexpected error", "error");
+    setStatus(retrievalStatusBadge, "Unexpected error", "error");
     resultsOutput.textContent = error.message;
   });
 });
 
+indexButton.addEventListener("click", () => {
+  runIndexing().catch((error) => {
+    setStatus(indexStatusBadge, "Unexpected error", "error");
+    indexResultsOutput.textContent = error.message;
+  });
+});
+
+activateTab("retrieval");
 loadDashboardData().catch((error) => {
-  setStatus("Failed to load dashboard", "error");
+  setStatus(retrievalStatusBadge, "Failed to load dashboard", "error");
+  setStatus(indexStatusBadge, "Failed to load dashboard", "error");
   strategyOutput.textContent = error.message;
   resultsOutput.textContent = error.message;
+  indexResultsOutput.textContent = error.message;
 });
