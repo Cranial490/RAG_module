@@ -1,4 +1,4 @@
-# Qdrant Vector DB RAG Pipeline
+# Vector DB RAG Pipeline
 
 This project is a configurable Retrieval-Augmented Generation pipeline built around plugin strategies.
 
