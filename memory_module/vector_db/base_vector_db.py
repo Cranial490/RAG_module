@@ -2,6 +2,7 @@ from abc import ABC, abstractmethod
 from typing import List, Dict, Any, Optional
 from datetime import datetime
 from ..chunking.data_models import Chunk
+from ..retrieval.data_models import ScoredChunk
 
 class BaseVectorMemory(ABC):
     """
@@ -21,7 +22,7 @@ class BaseVectorMemory(ABC):
         embedded_query: List[float],
         top_k: int = 5,
         filters: Optional[Dict[str, Any]] = None
-    ) -> List[Chunk]:
+    ) -> List[ScoredChunk]:
         """
         Retrieve memory chunks based on semantic similarity + metadata filters.
         """

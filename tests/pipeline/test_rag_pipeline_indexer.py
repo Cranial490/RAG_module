@@ -3,7 +3,7 @@ import pytest
 from memory_module.chunking.data_models import Chunk, ChunkMetadata
 from memory_module.parser.data_models import DocumentParserResult, FileMetadata, ParsedContent
 from memory_module.rag_pipeline import RAGPipeline
-from memory_module.retrieval.data_models import RetrievalRequest
+from memory_module.retrieval.data_models import RetrievalRequest, ScoredChunk
 from tests.conftest import StubChunker, StubEmbedder, StubParser, StubVectorDB
 
 
@@ -64,14 +64,16 @@ def test_indexer_flattens_batch_embedding(upload_docx):
     assert result[0].embedding == [0.1, 0.2]
 
 
-def test_retrieve_embeds_query_and_delegates_to_retrieval_strategy(sample_chunk):
+def test_retrieve_returns_scored_chunks(sample_chunk):
+    scored = ScoredChunk(chunk=sample_chunk, score=0.9)
+
     class RetrieveStrategy:
         def __init__(self):
             self.calls = []
 
         def retrieve(self, request: RetrievalRequest):
             self.calls.append(request)
-            return [sample_chunk]
+            return [scored]
 
     pipeline = RAGPipeline({})
     pipeline.embedder = StubEmbedder([0.3, 0.4])
@@ -79,7 +81,9 @@ def test_retrieve_embeds_query_and_delegates_to_retrieval_strategy(sample_chunk)
 
     results = pipeline.retrieve("hello", top_k=3, filters={"tags": "x"})
 
-    assert results == [sample_chunk]
+    assert results == [scored]
+    assert isinstance(results[0], ScoredChunk)
+    assert results[0].score == 0.9
     assert pipeline.embedder.calls == ["hello"]
     assert len(pipeline.retriever.calls) == 1
     req = pipeline.retriever.calls[0]
@@ -90,10 +94,12 @@ def test_retrieve_embeds_query_and_delegates_to_retrieval_strategy(sample_chunk)
 
 
 def test_retrieve_flattens_batch_embeddings(sample_chunk):
+    scored = ScoredChunk(chunk=sample_chunk, score=0.5)
+
     class RetrieveStrategy:
         def retrieve(self, request: RetrievalRequest):
             self.request = request
-            return [sample_chunk]
+            return [scored]
 
     pipeline = RAGPipeline({})
     pipeline.embedder = StubEmbedder([[0.3, 0.4]])

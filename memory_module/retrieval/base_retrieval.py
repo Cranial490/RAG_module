@@ -1,9 +1,8 @@
 from abc import ABC, abstractmethod
 from typing import List
 
-from ..chunking.data_models import Chunk
 from ..vector_db.base_vector_db import BaseVectorMemory
-from .data_models import RetrievalRequest
+from .data_models import RetrievalRequest, ScoredChunk
 
 
 class BaseRetrievalStrategy(ABC):
@@ -11,5 +10,5 @@ class BaseRetrievalStrategy(ABC):
         self.vector_db = vector_db
 
     @abstractmethod
-    def retrieve(self, request: RetrievalRequest) -> List[Chunk]:
+    def retrieve(self, request: RetrievalRequest) -> List[ScoredChunk]:
         pass
