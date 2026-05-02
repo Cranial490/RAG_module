@@ -5,6 +5,7 @@ from fastapi.testclient import TestClient
 
 import main
 from memory_module.chunking.data_models import Chunk, ChunkMetadata
+from memory_module.retrieval.data_models import ScoredChunk
 
 
 def test_index_endpoint_success(monkeypatch):
@@ -40,12 +41,15 @@ def test_index_endpoint_success(monkeypatch):
 def test_retrieve_endpoint_success(monkeypatch):
     pipeline = MagicMock()
     pipeline.retrieve.return_value = [
-        Chunk(
-            chunk_id="chunk-1",
-            text="hello",
-            embedding=[0.1],
-            metadata=ChunkMetadata(document_id="doc-1"),
-            token_count=1,
+        ScoredChunk(
+            chunk=Chunk(
+                chunk_id="chunk-1",
+                text="hello",
+                embedding=[0.1],
+                metadata=ChunkMetadata(document_id="doc-1"),
+                token_count=1,
+            ),
+            score=0.87,
         )
     ]
     monkeypatch.setattr(main, "RAGPipeline", lambda config: pipeline)
@@ -65,7 +69,9 @@ def test_retrieve_endpoint_success(monkeypatch):
     )
 
     assert response.status_code == 200
-    assert response.json()[0]["chunk_id"] == "chunk-1"
+    result = response.json()[0]
+    assert result["score"] == 0.87
+    assert result["chunk"]["chunk_id"] == "chunk-1"
     pipeline.retrieve.assert_called_once_with(
         query="hello",
         top_k=3,

@@ -72,13 +72,13 @@ def main():
     query_vector = [0.2, 0.3, 0.4, 0.5]  # Similar to the second chunk
     results = memory.retrieve(embedded_query=query_vector, top_k=2)
     
-    for i, chunk in enumerate(results):
-        print(f"\nResult {i+1}:")
-        print(f"ID: {chunk.chunk_id}")
-        print(f"Text: {chunk.text}")
-        print(f"Metadata: {chunk.metadata}")
-        print(f"Created At: {chunk.metadata.created_at}")
-    
+    for i, scored in enumerate(results):
+        print(f"\nResult {i+1} (score={scored.score:.4f}):")
+        print(f"ID: {scored.chunk.chunk_id}")
+        print(f"Text: {scored.chunk.text}")
+        print(f"Metadata: {scored.chunk.metadata}")
+        print(f"Created At: {scored.chunk.metadata.created_at}")
+
     # Retrieve chunks with filter
     print("\nRetrieving chunks with filter...")
     filtered_results = memory.retrieve(
@@ -86,12 +86,12 @@ def main():
         top_k=2,
         filters={"metadata.tags": "programming"}
     )
-    
-    for i, chunk in enumerate(filtered_results):
-        print(f"\nFiltered Result {i+1}:")
-        print(f"ID: {chunk.chunk_id}")
-        print(f"Text: {chunk.text}")
-        print(f"Metadata: {chunk.metadata}")
+
+    for i, scored in enumerate(filtered_results):
+        print(f"\nFiltered Result {i+1} (score={scored.score:.4f}):")
+        print(f"ID: {scored.chunk.chunk_id}")
+        print(f"Text: {scored.chunk.text}")
+        print(f"Metadata: {scored.chunk.metadata}")
     
     # Delete a chunk
     if chunks:
@@ -101,7 +101,7 @@ def main():
         
         # Verify deletion
         all_results = memory.retrieve(embedded_query=query_vector, top_k=10)
-        remaining_ids = [chunk.chunk_id for chunk in all_results]
+        remaining_ids = [scored.chunk.chunk_id for scored in all_results]
         
         if chunk_to_delete not in remaining_ids:
             print(f"Successfully deleted chunk with ID: {chunk_to_delete}")
