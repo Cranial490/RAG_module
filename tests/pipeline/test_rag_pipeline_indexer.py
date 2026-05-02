@@ -3,6 +3,7 @@ import pytest
 from memory_module.chunking.data_models import Chunk, ChunkMetadata
 from memory_module.parser.data_models import DocumentParserResult, FileMetadata, ParsedContent
 from memory_module.rag_pipeline import RAGPipeline
+from memory_module.retrieval.data_models import RetrievalRequest
 from tests.conftest import StubChunker, StubEmbedder, StubParser, StubVectorDB
 
 
@@ -68,8 +69,8 @@ def test_retrieve_embeds_query_and_delegates_to_retrieval_strategy(sample_chunk)
         def __init__(self):
             self.calls = []
 
-        def retrieve(self, embedded_query, top_k=5, filters=None):
-            self.calls.append((embedded_query, top_k, filters))
+        def retrieve(self, request: RetrievalRequest):
+            self.calls.append(request)
             return [sample_chunk]
 
     pipeline = RAGPipeline({})
@@ -80,13 +81,18 @@ def test_retrieve_embeds_query_and_delegates_to_retrieval_strategy(sample_chunk)
 
     assert results == [sample_chunk]
     assert pipeline.embedder.calls == ["hello"]
-    assert pipeline.retriever.calls == [([0.3, 0.4], 3, {"tags": "x"})]
+    assert len(pipeline.retriever.calls) == 1
+    req = pipeline.retriever.calls[0]
+    assert req.query_text == "hello"
+    assert req.query_embedding == [0.3, 0.4]
+    assert req.top_k == 3
+    assert req.filters == {"tags": "x"}
 
 
 def test_retrieve_flattens_batch_embeddings(sample_chunk):
     class RetrieveStrategy:
-        def retrieve(self, embedded_query, top_k=5, filters=None):
-            self.embedded_query = embedded_query
+        def retrieve(self, request: RetrievalRequest):
+            self.request = request
             return [sample_chunk]
 
     pipeline = RAGPipeline({})
@@ -95,7 +101,7 @@ def test_retrieve_flattens_batch_embeddings(sample_chunk):
 
     pipeline.retrieve("hello")
 
-    assert pipeline.retriever.embedded_query == [0.3, 0.4]
+    assert pipeline.retriever.request.query_embedding == [0.3, 0.4]
 
 
 def test_retrieve_requires_embedder_and_retrieval_strategy():

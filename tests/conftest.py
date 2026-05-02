@@ -111,8 +111,8 @@ class StubChunker:
         self._chunks = chunks
         self.calls: list[tuple[str, Any]] = []
 
-    def chunk(self, parsed_document: DocumentParserResult, metadata: dict[str, Any]) -> list[Chunk]:
-        self.calls.append(("chunk", parsed_document, metadata))
+    def chunk(self, parsed_document: DocumentParserResult, extra: dict[str, Any]) -> list[Chunk]:
+        self.calls.append(("chunk", parsed_document, extra))
         return self._chunks
 
 

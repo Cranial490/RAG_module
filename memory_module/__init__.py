@@ -10,6 +10,7 @@ __version__ = "0.1.0"
 # Import and expose main classes
 from .rag_pipeline import RAGPipeline
 from .retrieval.base_retrieval import BaseRetrievalStrategy
+from .retrieval.data_models import RetrievalRequest
 from .vector_db.base_vector_db import BaseVectorMemory
 from .vector_db.qdrant_vector_db import QdrantVectorMemory
 from .chunking.data_models import Chunk
@@ -17,6 +18,7 @@ from .chunking.data_models import Chunk
 __all__ = [
     "RAGPipeline",
     "BaseRetrievalStrategy",
+    "RetrievalRequest",
     "BaseVectorMemory",
     "QdrantVectorMemory",
     "Chunk",

@@ -1,6 +1,7 @@
 import pytest
 
 from memory_module.chunking.data_models import Chunk, ChunkMetadata
+from memory_module.retrieval.data_models import RetrievalRequest
 from memory_module.retrieval.similarity_retrieval import SimilarityRetrievalStrategy
 
 
@@ -24,12 +25,14 @@ class StubVectorDB:
 def test_similarity_retrieval_uses_self_vector_db():
     vector_db = StubVectorDB()
     strategy = SimilarityRetrievalStrategy(vector_db=vector_db)
-
-    results = strategy.retrieve(
-        embedded_query=[0.1, 0.2],
+    request = RetrievalRequest(
+        query_text="hello",
+        query_embedding=[0.1, 0.2],
         top_k=3,
         filters={"metadata.tags": "a"},
     )
+
+    results = strategy.retrieve(request)
 
     assert results[0].chunk_id == "chunk-1"
     assert vector_db.calls == [([0.1, 0.2], 3, {"metadata.tags": "a"})]
@@ -37,6 +40,7 @@ def test_similarity_retrieval_uses_self_vector_db():
 
 def test_similarity_retrieval_requires_vector_db():
     strategy = SimilarityRetrievalStrategy()
+    request = RetrievalRequest(query_text="hello", query_embedding=[0.1, 0.2])
 
     with pytest.raises(RuntimeError, match="requires a vector_db"):
-        strategy.retrieve(embedded_query=[0.1, 0.2])
+        strategy.retrieve(request)
