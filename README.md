@@ -552,19 +552,3 @@ Run when your environment has test dependencies installed:
 ```bash
 pytest tests -q
 ```
-
-## Final Pitch
-
-If you just want one hardcoded script, this project is more structure than you need.
-
-If you want a RAG foundation that can survive changing requirements, this design pays off quickly.
-
-The plugin strategy model is the point:
-
-- it keeps experiments cheap
-- it keeps responsibilities clean
-- it lets your system grow without turning into a rewrite
-
-That is the developer pitch:
-
-use this when you want a RAG system that is meant to evolve.
