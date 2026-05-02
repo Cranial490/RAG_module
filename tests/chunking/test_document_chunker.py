@@ -15,6 +15,14 @@ def test_chunker_uses_parsed_document_text(parsed_document):
     assert all(chunk.metadata.document_id == "doc_test" for chunk in chunks)
 
 
+def test_chunker_accepts_extra_keyword(parsed_document):
+    chunker = DocumentChunker(chunk_size=5, chunk_overlap=0, tokenizer="character")
+
+    chunks = chunker.chunk(parsed_document, extra={"tags": ["z"]})
+
+    assert chunks[0].metadata.tags == ["z"]
+
+
 def test_chunker_includes_tags_and_chunk_version(parsed_document):
     chunker = DocumentChunker(chunk_size=5, chunk_overlap=0, tokenizer="character")
 

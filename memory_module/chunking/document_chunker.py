@@ -29,8 +29,8 @@ class DocumentChunker(BaseChunker):
             chunk_overlap=chunk_overlap,
         )
 
-    def chunk(self, parsed_document: DocumentParserResult, metadata: Dict) -> List[Chunk]:
-        chunk_metadata_input = self._build_chunk_metadata_input(parsed_document, metadata)
+    def chunk(self, parsed_document: DocumentParserResult, extra: Dict) -> List[Chunk]:
+        chunk_metadata_input = self._build_chunk_metadata_input(parsed_document, extra)
         chunk_objects = []
 
         if parsed_document.content.mode == "text":
@@ -64,7 +64,7 @@ class DocumentChunker(BaseChunker):
     def _build_chunk_metadata_input(
         self,
         parsed_document: DocumentParserResult,
-        metadata: Dict,
+        extra: Dict,
     ) -> Dict:
         parser_metadata = parsed_document.file_metadata
         if parser_metadata is None:
@@ -75,7 +75,7 @@ class DocumentChunker(BaseChunker):
             "document_title": parser_metadata.document_title,
         }
 
-        caller_tags = (metadata or {}).get("tags")
+        caller_tags = (extra or {}).get("tags")
         if caller_tags is not None:
             chunk_metadata_input["tags"] = caller_tags
 

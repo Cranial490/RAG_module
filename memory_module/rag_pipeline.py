@@ -10,6 +10,7 @@ from .factory.retrieval_factory import get_retrieval_strategy
 from .factory.vector_db_factory import get_vector_db
 from .parser.document_parser_base import DocumentParserBase
 from .retrieval.base_retrieval import BaseRetrievalStrategy
+from .retrieval.data_models import RetrievalRequest
 from .vector_db.base_vector_db import BaseVectorMemory
 
 
@@ -109,7 +110,7 @@ class RAGPipeline:
             raise ValueError("Parser does not accept the provided document.")
 
         parsed_document = self.parser.convert(document)
-        chunks = self.chunker.chunk(parsed_document, metadata or {})
+        chunks = self.chunker.chunk(parsed_document, extra=metadata or {})
 
         for chunk in chunks:
             embedding = self.embedder.embed(chunk.text)
@@ -137,8 +138,10 @@ class RAGPipeline:
         if embedded_query and isinstance(embedded_query[0], list):
             embedded_query = embedded_query[0]
 
-        return self.retriever.retrieve(
-            embedded_query=embedded_query,
+        request = RetrievalRequest(
+            query_text=query,
+            query_embedding=embedded_query,
             top_k=top_k,
             filters=filters,
         )
+        return self.retriever.retrieve(request)
