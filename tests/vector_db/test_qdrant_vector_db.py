@@ -6,6 +6,7 @@ import pytest
 from qdrant_client.models import PointStruct
 
 from memory_module.chunking.data_models import Chunk, ChunkMetadata
+from memory_module.retrieval.data_models import ScoredChunk
 from memory_module.vector_db.qdrant_vector_db import QdrantVectorMemory
 
 
@@ -63,10 +64,11 @@ def test_add_chunks_serializes_current_payload_shape(mock_qdrant_client, sample_
     assert points[0].payload["metadata"]["document_id"] == "doc-1"
 
 
-def test_retrieve_rebuilds_chunks_from_payload(mock_qdrant_client):
+def test_retrieve_returns_scored_chunks_with_scores(mock_qdrant_client):
     mock_qdrant_client.search.return_value = [
         SimpleNamespace(
             id="chunk-1",
+            score=0.92,
             payload={
                 "text": "hello",
                 "token_count": 5,
@@ -86,9 +88,34 @@ def test_retrieve_rebuilds_chunks_from_payload(mock_qdrant_client):
     results = memory.retrieve([0.1, 0.2], top_k=1)
 
     assert len(results) == 1
-    assert results[0].chunk_id == "chunk-1"
-    assert results[0].metadata.document_id == "doc-1"
-    assert results[0].token_count == 5
+    assert isinstance(results[0], ScoredChunk)
+    assert results[0].score == 0.92
+    assert results[0].chunk.chunk_id == "chunk-1"
+    assert results[0].chunk.metadata.document_id == "doc-1"
+    assert results[0].chunk.token_count == 5
+
+
+def test_retrieve_preserves_score_from_qdrant(mock_qdrant_client):
+    mock_qdrant_client.search.return_value = [
+        SimpleNamespace(
+            id="a",
+            score=0.95,
+            payload={"text": "a", "token_count": 1, "metadata": {"document_id": "d1"}},
+            vector=[],
+        ),
+        SimpleNamespace(
+            id="b",
+            score=0.60,
+            payload={"text": "b", "token_count": 1, "metadata": {"document_id": "d2"}},
+            vector=[],
+        ),
+    ]
+
+    memory = QdrantVectorMemory(collection_name="test_collection", vector_size=2)
+    results = memory.retrieve([0.1], top_k=2)
+
+    assert results[0].score == 0.95
+    assert results[1].score == 0.60
 
 
 def test_retrieve_builds_qdrant_filters(mock_qdrant_client):

@@ -7,6 +7,7 @@ from qdrant_client import QdrantClient
 from qdrant_client.models import Distance, VectorParams, PointStruct, Filter, FieldCondition, MatchValue
 from .base_vector_db import BaseVectorMemory
 from ..chunking.data_models import Chunk, ChunkMetadata
+from ..retrieval.data_models import ScoredChunk
 
 load_dotenv()
 
@@ -119,7 +120,7 @@ class QdrantVectorMemory(BaseVectorMemory):
         embedded_query: List[float],
         top_k: int = 5,
         filters: Optional[Dict[str, Any]] = None
-    ) -> List[Chunk]:
+    ) -> List[ScoredChunk]:
         """
         Retrieve memory chunks based on semantic similarity + metadata filters.
         
@@ -169,10 +170,8 @@ class QdrantVectorMemory(BaseVectorMemory):
                 query_filter=qdrant_filter
             )
             
-            # Convert search results to Chunk objects
-            chunks = []
+            scored_chunks = []
             for result in search_result:
-                # Extract data from payload
                 payload = result.payload
                 text = payload.get("text", "")
                 metadata_dict = payload.get("metadata", {})
@@ -183,8 +182,7 @@ class QdrantVectorMemory(BaseVectorMemory):
                         created_at = datetime.fromisoformat(created_at_value)
                     except ValueError:
                         created_at = datetime.utcnow()
-                
-                # Create ChunkMetadata
+
                 metadata = ChunkMetadata(
                     document_id=metadata_dict.get("document_id", ""),
                     document_title=metadata_dict.get("document_title"),
@@ -192,8 +190,7 @@ class QdrantVectorMemory(BaseVectorMemory):
                     tags=metadata_dict.get("tags"),
                     chunk_version=metadata_dict.get("chunk_version")
                 )
-                
-                # Create Chunk
+
                 chunk = Chunk(
                     chunk_id=str(result.id),
                     text=text,
@@ -201,9 +198,9 @@ class QdrantVectorMemory(BaseVectorMemory):
                     metadata=metadata,
                     token_count=payload.get("token_count"),
                 )
-                chunks.append(chunk)
-            
-            return chunks
+                scored_chunks.append(ScoredChunk(chunk=chunk, score=result.score))
+
+            return scored_chunks
         
         except Exception as e:
             raise RuntimeError(f"Failed to retrieve chunks from Qdrant: {str(e)}")
