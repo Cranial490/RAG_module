@@ -1,7 +1,14 @@
 import pytest
 
 from memory_module.chunking.data_models import Chunk, ChunkMetadata
-from memory_module.errors import ConfigError, EmbedderFailed, InvalidQuery, ParserRejected, VectorDBFailed
+from memory_module.errors import (
+    ConfigError,
+    EmbedderFailed,
+    InvalidQuery,
+    NoChunksProduced,
+    ParserRejected,
+    VectorDBFailed,
+)
 from memory_module.parser.data_models import DocumentParserResult, FileMetadata, ParsedContent
 from memory_module.rag_pipeline import RAGPipeline
 from memory_module.retrieval.data_models import RetrievalRequest, ScoredChunk
@@ -182,6 +189,20 @@ def test_indexer_raises_embedder_failed_and_skips_vector_db(upload_docx):
     assert pipeline.vector_db.added_chunks is None
 
 
+def test_retrieve_returns_empty_list_when_retriever_returns_empty():
+    class EmptyRetriever:
+        def retrieve(self, request: RetrievalRequest):
+            return []
+
+    pipeline = RAGPipeline({})
+    pipeline.embedder = StubEmbedder([0.1, 0.2])
+    pipeline.retriever = EmptyRetriever()
+
+    results = pipeline.retrieve("hello")
+
+    assert results == []
+
+
 def test_retrieve_raises_embedder_failed():
     original = RuntimeError("embedder boom")
 
@@ -218,6 +239,53 @@ def test_retrieve_raises_vector_db_failed():
         pipeline.retrieve("hello")
 
     assert exc_info.value.__cause__ is original
+
+
+def test_indexer_raises_no_chunks_produced_when_chunker_returns_empty(upload_docx):
+    parsed_document = DocumentParserResult(
+        content=ParsedContent(mode="text", text="hello world", sections=[]),
+        file_metadata=FileMetadata(document_id="doc_1", document_title="Doc 1"),
+    )
+
+    pipeline = RAGPipeline({})
+    pipeline.parser = StubParser(parsed_document)
+    pipeline.chunker = StubChunker([])
+    pipeline.embedder = StubEmbedder([0.1, 0.2])
+    pipeline.vector_db = StubVectorDB()
+
+    with pytest.raises(NoChunksProduced):
+        pipeline.indexer(upload_docx)
+
+    assert pipeline.embedder.calls == []
+    assert pipeline.vector_db.added_chunks is None
+
+
+def test_indexer_raises_no_chunks_produced_for_empty_parsed_content(upload_docx):
+    empty_parsed = DocumentParserResult(
+        content=ParsedContent(mode="text", text="", sections=[]),
+        file_metadata=FileMetadata(document_id="doc_1", document_title="Doc 1"),
+    )
+
+    class EmptyContentChunker:
+        def __init__(self):
+            self.calls = []
+
+        def chunk(self, parsed_document, extra):
+            self.calls.append((parsed_document, extra))
+            return [] if not parsed_document.content.text else [object()]
+
+    pipeline = RAGPipeline({})
+    pipeline.parser = StubParser(empty_parsed)
+    pipeline.chunker = EmptyContentChunker()
+    pipeline.embedder = StubEmbedder([0.1, 0.2])
+    pipeline.vector_db = StubVectorDB()
+
+    with pytest.raises(NoChunksProduced) as exc_info:
+        pipeline.indexer(upload_docx)
+
+    assert type(exc_info.value) is NoChunksProduced
+    assert pipeline.embedder.calls == []
+    assert pipeline.vector_db.added_chunks is None
 
 
 def test_indexer_raises_vector_db_failed(upload_docx):

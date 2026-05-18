@@ -20,3 +20,7 @@ class EmbedderFailed(RAGError):
 
 class VectorDBFailed(RAGError):
     code = "vector_db_failed"
+
+
+class NoChunksProduced(RAGError):
+    code = "no_chunks_produced"
