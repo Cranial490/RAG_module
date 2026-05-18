@@ -127,12 +127,12 @@ class RAGPipeline:
         top_k: int = 5,
         filters: dict[str, Any] | None = None,
     ):
+        if not isinstance(query, str) or not query.strip():
+            raise ValueError("Retrieve requires a non-empty query string.")
         if self.embedder is None:
             raise RuntimeError("Retrieve requires an embedder strategy.")
         if self.retriever is None:
             raise RuntimeError("Retrieve requires a retrieval strategy.")
-        if not isinstance(query, str) or not query.strip():
-            raise ValueError("Retrieve requires a non-empty query string.")
 
         embedded_query = self.embedder.embed(query)
         if embedded_query and isinstance(embedded_query[0], list):

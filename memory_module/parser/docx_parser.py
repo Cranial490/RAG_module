@@ -66,10 +66,13 @@ class DocxParser(DocumentParserBase):
 
         text = "\n".join(full_text_parts)
         sections = [section for section in sections if section.text]
-        mode = "sections"
-        if not sections and text:
-            sections = [ParsedSection(title=None, text=text, level=None)]
+        has_headings = any(s.title is not None for s in sections)
+        if has_headings:
+            mode = "sections"
+        else:
             mode = "text"
+            if not sections and text:
+                sections = [ParsedSection(title=None, text=text, level=None)]
         file_stream.file.seek(0)
 
         return DocumentParserResult(
