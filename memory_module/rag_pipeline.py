@@ -3,7 +3,7 @@ from fastapi import UploadFile
 
 from .chunking.base_chunker import BaseChunker
 from .embedder.base_embedder import BaseEmbedder
-from .errors import ConfigError, InvalidQuery
+from .errors import ConfigError, EmbedderFailed, InvalidQuery, ParserRejected, VectorDBFailed
 from .factory.chunking_factory import get_chunker
 from .factory.embedder_factory import get_embedder
 from .factory.parser_factory import get_parser
@@ -107,19 +107,25 @@ class RAGPipeline:
         if hasattr(self.parser, "accepts") and not self.parser.accepts(document):
             parser_error = getattr(self.parser, "last_error", None)
             if parser_error:
-                raise ValueError(f"Parser rejected the provided document: {parser_error}")
-            raise ValueError("Parser does not accept the provided document.")
+                raise ParserRejected(f"Parser rejected the provided document: {parser_error}")
+            raise ParserRejected("Parser does not accept the provided document.")
 
         parsed_document = self.parser.convert(document)
         chunks = self.chunker.chunk(parsed_document, extra=metadata or {})
 
-        for chunk in chunks:
-            embedding = self.embedder.embed(chunk.text)
-            if embedding and isinstance(embedding[0], list):
-                embedding = embedding[0]
-            chunk.embedding = embedding
+        try:
+            for chunk in chunks:
+                embedding = self.embedder.embed(chunk.text)
+                if embedding and isinstance(embedding[0], list):
+                    embedding = embedding[0]
+                chunk.embedding = embedding
+        except Exception as exc:
+            raise EmbedderFailed("Embedder failed during indexing.") from exc
 
-        self.vector_db.add_chunks(chunks)
+        try:
+            self.vector_db.add_chunks(chunks)
+        except Exception as exc:
+            raise VectorDBFailed("Vector DB failed during indexing.") from exc
         return chunks
 
     def retrieve(
@@ -135,7 +141,10 @@ class RAGPipeline:
         if self.retriever is None:
             raise ConfigError("Retrieve requires a retrieval strategy.")
 
-        embedded_query = self.embedder.embed(query)
+        try:
+            embedded_query = self.embedder.embed(query)
+        except Exception as exc:
+            raise EmbedderFailed("Embedder failed on the query.") from exc
         if embedded_query and isinstance(embedded_query[0], list):
             embedded_query = embedded_query[0]
 
@@ -145,4 +154,7 @@ class RAGPipeline:
             top_k=top_k,
             filters=filters,
         )
-        return self.retriever.retrieve(request)
+        try:
+            return self.retriever.retrieve(request)
+        except Exception as exc:
+            raise VectorDBFailed("Vector DB failed during retrieval.") from exc
