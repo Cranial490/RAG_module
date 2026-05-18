@@ -8,3 +8,15 @@ class ConfigError(RAGError):
 
 class InvalidQuery(RAGError):
     code = "invalid_query"
+
+
+class ParserRejected(RAGError):
+    code = "parser_rejected"
+
+
+class EmbedderFailed(RAGError):
+    code = "embedder_failed"
+
+
+class VectorDBFailed(RAGError):
+    code = "vector_db_failed"

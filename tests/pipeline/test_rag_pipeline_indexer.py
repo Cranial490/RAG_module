@@ -1,7 +1,7 @@
 import pytest
 
 from memory_module.chunking.data_models import Chunk, ChunkMetadata
-from memory_module.errors import ConfigError, InvalidQuery
+from memory_module.errors import ConfigError, EmbedderFailed, InvalidQuery, ParserRejected, VectorDBFailed
 from memory_module.parser.data_models import DocumentParserResult, FileMetadata, ParsedContent
 from memory_module.rag_pipeline import RAGPipeline
 from memory_module.retrieval.data_models import RetrievalRequest, ScoredChunk
@@ -144,8 +144,113 @@ def test_indexer_raises_when_parser_rejects(upload_docx):
     pipeline.embedder = StubEmbedder([0.1])
     pipeline.vector_db = StubVectorDB()
 
-    with pytest.raises(ValueError, match="Parser rejected the provided document: Rejected for test"):
+    with pytest.raises(ParserRejected):
         pipeline.indexer(upload_docx)
+
+
+def test_indexer_raises_embedder_failed_and_skips_vector_db(upload_docx):
+    parsed_document = DocumentParserResult(
+        content=ParsedContent(mode="text", text="hello world", sections=[]),
+        file_metadata=FileMetadata(document_id="doc_1", document_title="Doc 1"),
+    )
+    chunks = [
+        Chunk(
+            chunk_id="chunk_1",
+            text="hello",
+            embedding=[],
+            metadata=ChunkMetadata(document_id="doc_1", chunk_version="doc_1_chunk_1"),
+            token_count=5,
+        )
+    ]
+
+    original = RuntimeError("embedder boom")
+
+    class FailingEmbedder:
+        def embed(self, text: str):
+            raise original
+
+    pipeline = RAGPipeline({})
+    pipeline.parser = StubParser(parsed_document)
+    pipeline.chunker = StubChunker(chunks)
+    pipeline.embedder = FailingEmbedder()
+    pipeline.vector_db = StubVectorDB()
+
+    with pytest.raises(EmbedderFailed) as exc_info:
+        pipeline.indexer(upload_docx)
+
+    assert exc_info.value.__cause__ is original
+    assert pipeline.vector_db.added_chunks is None
+
+
+def test_retrieve_raises_embedder_failed():
+    original = RuntimeError("embedder boom")
+
+    class FailingEmbedder:
+        def embed(self, text: str):
+            raise original
+
+    class DummyRetriever:
+        def retrieve(self, request):
+            return []
+
+    pipeline = RAGPipeline({})
+    pipeline.embedder = FailingEmbedder()
+    pipeline.retriever = DummyRetriever()
+
+    with pytest.raises(EmbedderFailed) as exc_info:
+        pipeline.retrieve("hello")
+
+    assert exc_info.value.__cause__ is original
+
+
+def test_retrieve_raises_vector_db_failed():
+    original = RuntimeError("vector db down")
+
+    class FailingRetriever:
+        def retrieve(self, request):
+            raise original
+
+    pipeline = RAGPipeline({})
+    pipeline.embedder = StubEmbedder([0.1, 0.2])
+    pipeline.retriever = FailingRetriever()
+
+    with pytest.raises(VectorDBFailed) as exc_info:
+        pipeline.retrieve("hello")
+
+    assert exc_info.value.__cause__ is original
+
+
+def test_indexer_raises_vector_db_failed(upload_docx):
+    parsed_document = DocumentParserResult(
+        content=ParsedContent(mode="text", text="hello world", sections=[]),
+        file_metadata=FileMetadata(document_id="doc_1", document_title="Doc 1"),
+    )
+    chunks = [
+        Chunk(
+            chunk_id="chunk_1",
+            text="hello",
+            embedding=[],
+            metadata=ChunkMetadata(document_id="doc_1", chunk_version="doc_1_chunk_1"),
+            token_count=5,
+        )
+    ]
+
+    original = RuntimeError("vector db down")
+
+    class FailingVectorDB:
+        def add_chunks(self, chunks):
+            raise original
+
+    pipeline = RAGPipeline({})
+    pipeline.parser = StubParser(parsed_document)
+    pipeline.chunker = StubChunker(chunks)
+    pipeline.embedder = StubEmbedder([0.1, 0.2])
+    pipeline.vector_db = FailingVectorDB()
+
+    with pytest.raises(VectorDBFailed) as exc_info:
+        pipeline.indexer(upload_docx)
+
+    assert exc_info.value.__cause__ is original
 
 
 @pytest.mark.parametrize(
