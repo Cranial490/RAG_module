@@ -24,4 +24,4 @@ class FileMetadata(BaseModel):
 class DocumentParserResult(BaseModel):
     """Output contract for parser strategies."""
     content: ParsedContent
-    file_metadata: FileMetadata
+    file_metadata: FileMetadata | None = None

@@ -1,5 +1,6 @@
 import pytest
 
+from memory_module.errors import ConfigError
 from memory_module.rag_pipeline import RAGPipeline
 
 
@@ -80,7 +81,7 @@ def test_rag_pipeline_invalid_strategy_key_mentions_subsystem(monkeypatch):
         lambda key, **kwargs: (_ for _ in ()).throw(ValueError("Invalid parser key: invalid")),
     )
 
-    with pytest.raises(ValueError, match="Invalid parser strategy key: invalid"):
+    with pytest.raises(ConfigError, match="Invalid parser strategy key: invalid"):
         RAGPipeline({"parser_key": "invalid"})
 
 
@@ -90,20 +91,20 @@ def test_rag_pipeline_constructor_error_is_preserved(monkeypatch):
         lambda key, **kwargs: (_ for _ in ()).throw(ValueError("Missing API key")),
     )
 
-    with pytest.raises(ValueError, match="Failed to initialize embedder strategy 'azure_openai': Missing API key"):
+    with pytest.raises(ConfigError, match="Failed to initialize embedder strategy 'azure_openai': Missing API key"):
         RAGPipeline({"embedder_key": "azure_openai"})
 
 
 def test_rag_pipeline_requires_dict_config():
-    with pytest.raises(TypeError, match="config must be a dict"):
+    with pytest.raises(ConfigError, match="config must be a dict"):
         RAGPipeline("not-a-dict")  # type: ignore[arg-type]
 
 
 def test_rag_pipeline_requires_dict_kwargs():
-    with pytest.raises(TypeError, match="chunker_kwargs must be a dict"):
+    with pytest.raises(ConfigError, match="chunker_kwargs must be a dict"):
         RAGPipeline({"chunker_key": "document", "chunker_kwargs": "bad"})
 
 
 def test_rag_pipeline_requires_single_string_strategy_key():
-    with pytest.raises(TypeError, match="Only one parser strategy can be selected at a time"):
+    with pytest.raises(ConfigError, match="Only one parser strategy can be selected at a time"):
         RAGPipeline({"parser_key": ["docx"]})
