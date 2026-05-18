@@ -3,7 +3,7 @@ import inspect
 import pytest
 
 import memory_module.errors as errors_module
-from memory_module.errors import ConfigError, InvalidQuery, RAGError
+from memory_module.errors import ConfigError, InvalidQuery, NoChunksProduced, RAGError
 
 
 def test_all_subclasses_inherit_rag_error_and_have_code():
@@ -29,3 +29,9 @@ def test_invalid_query_is_rag_error():
     exc = InvalidQuery("empty query")
     assert isinstance(exc, RAGError)
     assert InvalidQuery.code == "invalid_query"
+
+
+def test_no_chunks_produced_is_rag_error():
+    exc = NoChunksProduced("no chunks")
+    assert isinstance(exc, RAGError)
+    assert NoChunksProduced.code == "no_chunks_produced"

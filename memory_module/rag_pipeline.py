@@ -3,7 +3,14 @@ from fastapi import UploadFile
 
 from .chunking.base_chunker import BaseChunker
 from .embedder.base_embedder import BaseEmbedder
-from .errors import ConfigError, EmbedderFailed, InvalidQuery, ParserRejected, VectorDBFailed
+from .errors import (
+    ConfigError,
+    EmbedderFailed,
+    InvalidQuery,
+    NoChunksProduced,
+    ParserRejected,
+    VectorDBFailed,
+)
 from .factory.chunking_factory import get_chunker
 from .factory.embedder_factory import get_embedder
 from .factory.parser_factory import get_parser
@@ -112,6 +119,8 @@ class RAGPipeline:
 
         parsed_document = self.parser.convert(document)
         chunks = self.chunker.chunk(parsed_document, extra=metadata or {})
+        if not chunks:
+            raise NoChunksProduced("Chunker produced no chunks for the provided document.")
 
         try:
             for chunk in chunks:
