@@ -1,6 +1,7 @@
 import pytest
 
 from memory_module.chunking.data_models import Chunk, ChunkMetadata
+from memory_module.errors import ConfigError, InvalidQuery
 from memory_module.parser.data_models import DocumentParserResult, FileMetadata, ParsedContent
 from memory_module.rag_pipeline import RAGPipeline
 from memory_module.retrieval.data_models import RetrievalRequest, ScoredChunk
@@ -113,11 +114,11 @@ def test_retrieve_flattens_batch_embeddings(sample_chunk):
 def test_retrieve_requires_embedder_and_retrieval_strategy():
     pipeline = RAGPipeline({})
 
-    with pytest.raises(RuntimeError, match="embedder strategy"):
+    with pytest.raises(ConfigError, match="embedder strategy"):
         pipeline.retrieve("hello")
 
     pipeline.embedder = StubEmbedder([0.1])
-    with pytest.raises(RuntimeError, match="retrieval strategy"):
+    with pytest.raises(ConfigError, match="retrieval strategy"):
         pipeline.retrieve("hello")
 
 
@@ -126,7 +127,7 @@ def test_retrieve_requires_non_empty_query():
     pipeline.embedder = StubEmbedder([0.1])
     pipeline.vector_db = StubVectorDB()
 
-    with pytest.raises(ValueError, match="non-empty query string"):
+    with pytest.raises(InvalidQuery):
         pipeline.retrieve("   ")
 
 
@@ -163,5 +164,5 @@ def test_indexer_requires_all_components(parser, chunker, embedder, vector_db, m
     pipeline.embedder = embedder
     pipeline.vector_db = vector_db
 
-    with pytest.raises(RuntimeError, match=message):
+    with pytest.raises(ConfigError, match=message):
         pipeline.indexer(upload_docx)
