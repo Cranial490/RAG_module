@@ -113,6 +113,16 @@ class QdrantVectorMemory(BaseVectorMemory):
                 wait=True
             )
         except Exception as e:
+            # Best-effort compensating delete for the batch's ids. See
+            # docs/adr/0001-add-chunks-atomicity.md for the contract.
+            try:
+                self.vector_client.delete(
+                    collection_name=self.collection_name,
+                    points_selector=[chunk.chunk_id for chunk in chunks],
+                    wait=True,
+                )
+            except Exception:
+                pass
             raise RuntimeError(f"Failed to add chunks to Qdrant: {str(e)}")
 
     def retrieve(
