@@ -4,10 +4,12 @@ from fastapi import UploadFile
 from .chunking.base_chunker import BaseChunker
 from .embedder.base_embedder import BaseEmbedder
 from .errors import (
+    ChunkerFailed,
     ConfigError,
     EmbedderFailed,
     InvalidQuery,
     NoChunksProduced,
+    ParserFailed,
     ParserRejected,
     VectorDBFailed,
 )
@@ -117,8 +119,16 @@ class RAGPipeline:
                 raise ParserRejected(f"Parser rejected the provided document: {parser_error}")
             raise ParserRejected("Parser does not accept the provided document.")
 
-        parsed_document = self.parser.convert(document)
-        chunks = self.chunker.chunk(parsed_document, extra=metadata or {})
+        try:
+            parsed_document = self.parser.convert(document)
+        except Exception as exc:
+            raise ParserFailed("Parser failed during indexing.") from exc
+
+        try:
+            chunks = self.chunker.chunk(parsed_document, extra=metadata or {})
+        except Exception as exc:
+            raise ChunkerFailed("Chunker failed during indexing.") from exc
+
         if not chunks:
             raise NoChunksProduced("Chunker produced no chunks for the provided document.")
 
