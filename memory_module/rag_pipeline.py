@@ -149,6 +149,8 @@ class RAGPipeline:
             raise ConfigError("Retrieve requires an embedder strategy.")
         if self.retriever is None:
             raise ConfigError("Retrieve requires a retrieval strategy.")
+        if self.vector_db is None:
+            raise ConfigError("Retrieve requires a vector_db strategy.")
 
         try:
             embedded_query = self.embedder.embed(query)

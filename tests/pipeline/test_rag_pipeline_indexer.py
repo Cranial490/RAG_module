@@ -12,6 +12,7 @@ from memory_module.errors import (
 from memory_module.parser.data_models import DocumentParserResult, FileMetadata, ParsedContent
 from memory_module.rag_pipeline import RAGPipeline
 from memory_module.retrieval.data_models import RetrievalRequest, ScoredChunk
+from memory_module.retrieval.similarity_retrieval import SimilarityRetrievalStrategy
 from tests.conftest import StubChunker, StubEmbedder, StubParser, StubVectorDB
 
 
@@ -86,6 +87,7 @@ def test_retrieve_returns_scored_chunks(sample_chunk):
     pipeline = RAGPipeline({})
     pipeline.embedder = StubEmbedder([0.3, 0.4])
     pipeline.retriever = RetrieveStrategy()
+    pipeline.vector_db = StubVectorDB()
 
     results = pipeline.retrieve("hello", top_k=3, filters={"tags": "x"})
 
@@ -112,6 +114,7 @@ def test_retrieve_flattens_batch_embeddings(sample_chunk):
     pipeline = RAGPipeline({})
     pipeline.embedder = StubEmbedder([[0.3, 0.4]])
     pipeline.retriever = RetrieveStrategy()
+    pipeline.vector_db = StubVectorDB()
 
     pipeline.retrieve("hello")
 
@@ -197,6 +200,7 @@ def test_retrieve_returns_empty_list_when_retriever_returns_empty():
     pipeline = RAGPipeline({})
     pipeline.embedder = StubEmbedder([0.1, 0.2])
     pipeline.retriever = EmptyRetriever()
+    pipeline.vector_db = StubVectorDB()
 
     results = pipeline.retrieve("hello")
 
@@ -217,11 +221,21 @@ def test_retrieve_raises_embedder_failed():
     pipeline = RAGPipeline({})
     pipeline.embedder = FailingEmbedder()
     pipeline.retriever = DummyRetriever()
+    pipeline.vector_db = StubVectorDB()
 
     with pytest.raises(EmbedderFailed) as exc_info:
         pipeline.retrieve("hello")
 
     assert exc_info.value.__cause__ is original
+
+
+def test_retrieve_raises_config_error_when_vector_db_unset():
+    pipeline = RAGPipeline({})
+    pipeline.embedder = StubEmbedder([0.1, 0.2])
+    pipeline.retriever = SimilarityRetrievalStrategy(vector_db=None)
+
+    with pytest.raises(ConfigError, match="vector_db strategy"):
+        pipeline.retrieve("hello")
 
 
 def test_retrieve_raises_vector_db_failed():
@@ -234,6 +248,7 @@ def test_retrieve_raises_vector_db_failed():
     pipeline = RAGPipeline({})
     pipeline.embedder = StubEmbedder([0.1, 0.2])
     pipeline.retriever = FailingRetriever()
+    pipeline.vector_db = StubVectorDB()
 
     with pytest.raises(VectorDBFailed) as exc_info:
         pipeline.retrieve("hello")
