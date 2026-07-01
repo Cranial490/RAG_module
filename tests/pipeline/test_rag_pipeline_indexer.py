@@ -49,32 +49,6 @@ def test_indexer_calls_components_in_order(upload_docx):
     assert result[0].embedding == [0.1, 0.2]
 
 
-def test_indexer_flattens_batch_embedding(upload_docx):
-    parsed_document = DocumentParserResult(
-        content=ParsedContent(mode="text", text="hello world", sections=[]),
-        file_metadata=FileMetadata(document_id="doc_1", document_title="Doc 1"),
-    )
-    chunks = [
-        Chunk(
-            chunk_id="chunk_1",
-            text="hello",
-            embedding=[],
-            metadata=ChunkMetadata(document_id="doc_1", chunk_version="doc_1_chunk_1"),
-            token_count=5,
-        )
-    ]
-
-    pipeline = RAGPipeline({})
-    pipeline.parser = StubParser(parsed_document)
-    pipeline.chunker = StubChunker(chunks)
-    pipeline.embedder = StubEmbedder([[0.1, 0.2]])
-    pipeline.vector_db = StubVectorDB()
-
-    result = pipeline.indexer(upload_docx)
-
-    assert result[0].embedding == [0.1, 0.2]
-
-
 def test_retrieve_returns_scored_chunks(sample_chunk):
     scored = ScoredChunk(chunk=sample_chunk, score=0.9)
 
@@ -103,24 +77,6 @@ def test_retrieve_returns_scored_chunks(sample_chunk):
     assert req.query_embedding == [0.3, 0.4]
     assert req.top_k == 3
     assert req.filters == {"tags": "x"}
-
-
-def test_retrieve_flattens_batch_embeddings(sample_chunk):
-    scored = ScoredChunk(chunk=sample_chunk, score=0.5)
-
-    class RetrieveStrategy:
-        def retrieve(self, request: RetrievalRequest):
-            self.request = request
-            return [scored]
-
-    pipeline = RAGPipeline({})
-    pipeline.embedder = StubEmbedder([[0.3, 0.4]])
-    pipeline.retriever = RetrieveStrategy()
-    pipeline.vector_db = StubVectorDB()
-
-    pipeline.retrieve("hello")
-
-    assert pipeline.retriever.request.query_embedding == [0.3, 0.4]
 
 
 def test_retrieve_requires_embedder_and_retrieval_strategy():

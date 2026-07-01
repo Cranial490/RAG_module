@@ -134,10 +134,7 @@ class RAGPipeline:
 
         try:
             for chunk in chunks:
-                embedding = self.embedder.embed(chunk.text)
-                if embedding and isinstance(embedding[0], list):
-                    embedding = embedding[0]
-                chunk.embedding = embedding
+                chunk.embedding = self.embedder.embed(chunk.text)
         except Exception as exc:
             raise EmbedderFailed("Embedder failed during indexing.") from exc
 
@@ -166,8 +163,6 @@ class RAGPipeline:
             embedded_query = self.embedder.embed(query)
         except Exception as exc:
             raise EmbedderFailed("Embedder failed on the query.") from exc
-        if embedded_query and isinstance(embedded_query[0], list):
-            embedded_query = embedded_query[0]
 
         request = RetrievalRequest(
             query_text=query,

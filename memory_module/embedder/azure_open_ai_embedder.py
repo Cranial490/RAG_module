@@ -5,6 +5,7 @@ from dotenv import load_dotenv
 from openai import OpenAI
 
 from .base_embedder import BaseEmbedder
+from ..errors import EmbedderFailed
 
 load_dotenv()
 
@@ -41,13 +42,16 @@ class AzureEmbeddingGenerator(BaseEmbedder):
             base_url=self.base_url,
         )
 
-    def embed(self, text: str) -> List[List[float]]:
+    def embed(self, text: str) -> List[float]:
         """
-        Generates embeddings for a string.
+        Generates a single embedding vector for a string.
         """
         response = self.client.embeddings.create(
             model=self.model,
             input=text,
         )
-        embeddings = [d.embedding for d in response.data]
-        return embeddings
+        if not response.data:
+            raise EmbedderFailed(
+                "Azure embedder returned no embeddings for the input text."
+            )
+        return response.data[0].embedding
