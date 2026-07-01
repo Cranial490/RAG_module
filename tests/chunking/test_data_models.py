@@ -1,3 +1,5 @@
+from datetime import timezone
+
 import pytest
 
 from memory_module.chunking.data_models import Chunk, ChunkMetadata
@@ -26,4 +28,11 @@ def test_chunk_requires_current_simplified_fields():
 
     assert chunk.chunk_id == "chunk1"
     assert chunk.token_count == 5
+
+
+def test_chunk_metadata_created_at_default_is_timezone_aware_utc():
+    metadata = ChunkMetadata(document_id="doc1")
+
+    assert metadata.created_at.tzinfo is not None
+    assert metadata.created_at.utcoffset() == timezone.utc.utcoffset(metadata.created_at)
 

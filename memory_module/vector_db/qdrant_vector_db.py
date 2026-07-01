@@ -1,5 +1,5 @@
 from typing import List, Dict, Any, Optional
-from datetime import datetime
+from datetime import datetime, timezone
 import os
 
 from dotenv import load_dotenv
@@ -186,12 +186,12 @@ class QdrantVectorMemory(BaseVectorMemory):
                 text = payload.get("text", "")
                 metadata_dict = payload.get("metadata", {})
                 created_at_value = metadata_dict.get("created_at")
-                created_at = datetime.now()
+                created_at = datetime.now(timezone.utc)
                 if isinstance(created_at_value, str):
                     try:
                         created_at = datetime.fromisoformat(created_at_value)
                     except ValueError:
-                        created_at = datetime.utcnow()
+                        created_at = datetime.now(timezone.utc)
 
                 metadata = ChunkMetadata(
                     document_id=metadata_dict.get("document_id", ""),

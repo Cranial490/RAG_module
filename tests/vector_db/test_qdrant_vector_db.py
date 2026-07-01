@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from types import SimpleNamespace
 from unittest.mock import MagicMock
 
@@ -36,7 +36,7 @@ def sample_chunks():
                 document_title="Doc 1",
                 tags=["a"],
                 chunk_version="doc-1_chunk_1",
-                created_at=datetime.utcnow(),
+                created_at=datetime.now(timezone.utc),
             ),
             token_count=5,
         )
@@ -85,7 +85,7 @@ def test_retrieve_returns_scored_chunks_with_scores(mock_qdrant_client):
                     "document_title": "Doc 1",
                     "tags": ["a"],
                     "chunk_version": "doc-1_chunk_1",
-                    "created_at": datetime.utcnow().isoformat(),
+                    "created_at": datetime.now(timezone.utc).isoformat(),
                 },
             },
             vector=[0.1, 0.2],
@@ -175,4 +175,61 @@ def test_add_chunks_surfaces_original_error_when_compensating_delete_also_fails(
 
     with pytest.raises(RuntimeError, match="upsert boom"):
         memory.add_chunks(sample_chunks)
+
+
+def _search_result_with_metadata(metadata: dict) -> SimpleNamespace:
+    return SimpleNamespace(
+        id="chunk-1",
+        score=0.5,
+        payload={"text": "x", "token_count": 1, "metadata": metadata},
+        vector=[],
+    )
+
+
+def test_retrieve_created_at_fallback_is_timezone_aware_when_missing(mock_qdrant_client):
+    mock_qdrant_client.search.return_value = [
+        _search_result_with_metadata({"document_id": "doc-1"})
+    ]
+
+    memory = QdrantVectorMemory(collection_name="test_collection", vector_size=2)
+    results = memory.retrieve([0.1, 0.2], top_k=1)
+
+    assert results[0].chunk.metadata.created_at.tzinfo is not None
+    assert results[0].chunk.metadata.created_at.utcoffset() == timezone.utc.utcoffset(
+        results[0].chunk.metadata.created_at
+    )
+
+
+def test_retrieve_created_at_fallback_is_timezone_aware_when_unparseable(mock_qdrant_client):
+    mock_qdrant_client.search.return_value = [
+        _search_result_with_metadata({"document_id": "doc-1", "created_at": "not-a-date"})
+    ]
+
+    memory = QdrantVectorMemory(collection_name="test_collection", vector_size=2)
+    results = memory.retrieve([0.1, 0.2], top_k=1)
+
+    assert results[0].chunk.metadata.created_at.tzinfo is not None
+    assert results[0].chunk.metadata.created_at.utcoffset() == timezone.utc.utcoffset(
+        results[0].chunk.metadata.created_at
+    )
+
+
+@pytest.mark.parametrize(
+    "iso_string",
+    [
+        "2025-01-02T03:04:05",         # legacy naive payload
+        "2025-01-02T03:04:05+00:00",   # new tz-aware payload
+    ],
+)
+def test_retrieve_parses_iso_created_at_from_payload(mock_qdrant_client, iso_string):
+    mock_qdrant_client.search.return_value = [
+        _search_result_with_metadata({"document_id": "doc-1", "created_at": iso_string})
+    ]
+
+    memory = QdrantVectorMemory(collection_name="test_collection", vector_size=2)
+    results = memory.retrieve([0.1, 0.2], top_k=1)
+
+    parsed = results[0].chunk.metadata.created_at
+    assert (parsed.year, parsed.month, parsed.day) == (2025, 1, 2)
+    assert (parsed.hour, parsed.minute, parsed.second) == (3, 4, 5)
 

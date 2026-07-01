@@ -1,6 +1,6 @@
 from pydantic import BaseModel, Field
 from typing import Optional, List
-from datetime import datetime
+from datetime import datetime, timezone
 
 
 class ChunkMetadata(BaseModel):
@@ -8,7 +8,7 @@ class ChunkMetadata(BaseModel):
     document_title: Optional[str] = None # Optional human-readable title
     tags: Optional[List[str]] = None     # Custom tags like "finance", "HR", etc.
     chunk_version: Optional[str] = None  # Versioning support
-    created_at: datetime = Field(default_factory=datetime.utcnow) # When this chunk was created
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc)) # When this chunk was created
 
 class Chunk(BaseModel):
     chunk_id: str                         # Unique ID for the chunk
