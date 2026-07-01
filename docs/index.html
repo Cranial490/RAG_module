@@ -1,0 +1,1009 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>RAG Module — Developer Documentation</title>
+<meta name="description" content="A configurable Retrieval-Augmented Generation pipeline built around swappable plugin strategies (parser, chunker, embedder, vector DB, retrieval)." />
+
+<!-- Syntax highlighting -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/atom-one-dark.min.css" />
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+
+<!-- Diagrams -->
+<script type="module">
+  import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs';
+  mermaid.initialize({
+    startOnLoad: true,
+    theme: 'base',
+    themeVariables: {
+      background: '#0d1117',
+      primaryColor: '#161b22',
+      primaryBorderColor: '#30363d',
+      primaryTextColor: '#e6edf3',
+      lineColor: '#8b949e',
+      secondaryColor: '#1f6feb',
+      tertiaryColor: '#161b22',
+      fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace'
+    }
+  });
+</script>
+
+<style>
+  :root {
+    --bg: #0d1117;
+    --bg-alt: #010409;
+    --panel: #161b22;
+    --panel-2: #1c2230;
+    --border: #30363d;
+    --text: #e6edf3;
+    --muted: #8b949e;
+    --accent: #58a6ff;
+    --accent-2: #1f6feb;
+    --green: #3fb950;
+    --amber: #d29922;
+    --red: #f85149;
+    --purple: #bc8cff;
+    --radius: 10px;
+    --sidebar-w: 290px;
+    --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  }
+
+  * { box-sizing: border-box; }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    font-size: 16px;
+    line-height: 1.65;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+
+  code, pre, kbd { font-family: var(--mono); }
+
+  /* ---------- Layout ---------- */
+  .layout { display: flex; min-height: 100vh; }
+
+  nav.sidebar {
+    width: var(--sidebar-w);
+    flex-shrink: 0;
+    background: var(--bg-alt);
+    border-right: 1px solid var(--border);
+    padding: 0;
+    position: sticky;
+    top: 0;
+    height: 100vh;
+    overflow-y: auto;
+  }
+
+  .brand {
+    padding: 22px 22px 16px;
+    border-bottom: 1px solid var(--border);
+    position: sticky;
+    top: 0;
+    background: var(--bg-alt);
+    z-index: 5;
+  }
+  .brand h1 {
+    font-size: 17px;
+    margin: 0 0 4px;
+    letter-spacing: .2px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .brand .logo {
+    display: inline-flex;
+    width: 26px; height: 26px;
+    align-items: center; justify-content: center;
+    background: linear-gradient(135deg, var(--accent-2), var(--purple));
+    border-radius: 7px;
+    font-size: 15px;
+  }
+  .brand .tag { font-size: 12px; color: var(--muted); margin: 0; }
+
+  .nav-group { padding: 14px 12px 4px; }
+  .nav-group-title {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: .8px;
+    color: var(--muted);
+    padding: 6px 10px;
+    font-weight: 600;
+  }
+  nav.sidebar ul { list-style: none; margin: 0; padding: 0; }
+  nav.sidebar li a {
+    display: block;
+    padding: 6px 12px;
+    margin: 1px 0;
+    border-radius: 6px;
+    color: var(--muted);
+    font-size: 14px;
+    border-left: 2px solid transparent;
+  }
+  nav.sidebar li a:hover { background: var(--panel); color: var(--text); text-decoration: none; }
+  nav.sidebar li a.sub { padding-left: 24px; font-size: 13px; }
+  nav.sidebar li a.active { color: var(--accent); background: var(--panel); border-left-color: var(--accent); }
+
+  main {
+    flex: 1;
+    min-width: 0;
+    padding: 0 clamp(20px, 5vw, 64px) 120px;
+    max-width: 1080px;
+    margin: 0 auto;
+  }
+
+  header.hero {
+    padding: 56px 0 28px;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 8px;
+  }
+  header.hero .eyebrow {
+    color: var(--accent); font-weight: 600; font-size: 13px;
+    text-transform: uppercase; letter-spacing: 1px;
+  }
+  header.hero h1 { font-size: clamp(30px, 5vw, 44px); margin: 10px 0 12px; line-height: 1.15; }
+  header.hero p.lede { font-size: 18px; color: var(--muted); max-width: 720px; margin: 0; }
+
+  .pill-row { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 22px; }
+  .pill {
+    font-family: var(--mono);
+    font-size: 12px;
+    padding: 4px 11px;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    color: var(--muted);
+  }
+  .pill b { color: var(--text); font-weight: 600; }
+
+  section { padding: 44px 0; border-bottom: 1px solid var(--border); scroll-margin-top: 20px; }
+  section:last-child { border-bottom: none; }
+  section > h2 {
+    font-size: 27px; margin: 0 0 6px;
+    display: flex; align-items: center; gap: 10px;
+  }
+  section > h2 .num {
+    font-family: var(--mono); font-size: 15px; color: var(--accent);
+    background: var(--panel); border: 1px solid var(--border);
+    border-radius: 7px; padding: 2px 9px;
+  }
+  section .section-sub { color: var(--muted); margin: 0 0 22px; font-size: 15.5px; }
+
+  h3 { font-size: 20px; margin: 34px 0 10px; }
+  h4 { font-size: 16px; margin: 24px 0 8px; color: var(--text); }
+
+  p { margin: 12px 0; }
+
+  ul, ol { padding-left: 22px; }
+  li { margin: 5px 0; }
+
+  /* ---------- Code ---------- */
+  pre {
+    background: #05070a;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 0;
+    overflow: hidden;
+    margin: 16px 0;
+    position: relative;
+  }
+  pre .code-head {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 8px 14px;
+    background: var(--panel);
+    border-bottom: 1px solid var(--border);
+    font-family: var(--mono);
+    font-size: 12px; color: var(--muted);
+  }
+  pre .code-head .lang { color: var(--accent); font-weight: 600; }
+  pre code.hljs { padding: 16px; font-size: 13.5px; line-height: 1.55; background: transparent; }
+  :not(pre) > code {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 5px;
+    padding: 1.5px 6px;
+    font-size: 13px;
+    color: var(--purple);
+  }
+
+  /* ---------- Callouts ---------- */
+  .callout {
+    border: 1px solid var(--border);
+    border-left: 4px solid var(--accent);
+    background: var(--panel);
+    border-radius: 8px;
+    padding: 14px 18px;
+    margin: 18px 0;
+    font-size: 14.5px;
+  }
+  .callout.warn { border-left-color: var(--amber); }
+  .callout.danger { border-left-color: var(--red); }
+  .callout.ok { border-left-color: var(--green); }
+  .callout .title { font-weight: 700; display: block; margin-bottom: 3px; }
+
+  /* ---------- Tables ---------- */
+  .table-wrap { overflow-x: auto; margin: 18px 0; border: 1px solid var(--border); border-radius: var(--radius); }
+  table { border-collapse: collapse; width: 100%; font-size: 14px; }
+  th, td { text-align: left; padding: 10px 14px; border-bottom: 1px solid var(--border); vertical-align: top; }
+  th { background: var(--panel); color: var(--text); font-weight: 600; white-space: nowrap; }
+  tr:last-child td { border-bottom: none; }
+  td code { color: var(--purple); }
+
+  /* ---------- Cards ---------- */
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 16px; margin: 20px 0; }
+  .card {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 16px 18px;
+  }
+  .card h4 { margin: 0 0 6px; display: flex; align-items: center; gap: 8px; }
+  .card p { margin: 0; font-size: 13.5px; color: var(--muted); }
+  .card .badge { font-family: var(--mono); font-size: 11px; color: var(--green); }
+
+  /* ---------- Method badges ---------- */
+  .endpoint {
+    display: flex; align-items: center; gap: 10px;
+    font-family: var(--mono); font-size: 15px;
+    background: var(--panel); border: 1px solid var(--border);
+    border-radius: 8px; padding: 10px 14px; margin: 22px 0 4px;
+    flex-wrap: wrap;
+  }
+  .method { font-weight: 700; padding: 2px 9px; border-radius: 5px; font-size: 12px; letter-spacing: .5px; }
+  .method.get { background: rgba(63,185,80,.15); color: var(--green); border: 1px solid rgba(63,185,80,.4); }
+  .method.post { background: rgba(31,111,235,.18); color: var(--accent); border: 1px solid rgba(31,111,235,.5); }
+  .endpoint .path { color: var(--text); }
+
+  .diagram {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 20px;
+    margin: 20px 0;
+    overflow-x: auto;
+    text-align: center;
+  }
+
+  .anchor { color: var(--muted); font-weight: 400; opacity: 0; margin-left: 8px; font-size: .7em; }
+  h2:hover .anchor, h3:hover .anchor { opacity: 1; }
+
+  footer.doc-footer { color: var(--muted); font-size: 13px; padding: 40px 0 0; }
+
+  /* ---------- Mobile ---------- */
+  .menu-toggle {
+    display: none;
+    position: fixed; top: 14px; left: 14px; z-index: 50;
+    background: var(--panel); border: 1px solid var(--border); color: var(--text);
+    border-radius: 8px; padding: 8px 12px; font-size: 18px; cursor: pointer;
+  }
+  .backdrop { display: none; }
+
+  @media (max-width: 900px) {
+    .menu-toggle { display: block; }
+    nav.sidebar {
+      position: fixed; left: 0; top: 0; z-index: 40;
+      transform: translateX(-100%); transition: transform .25s ease;
+      box-shadow: 0 0 40px rgba(0,0,0,.6);
+    }
+    nav.sidebar.open { transform: translateX(0); }
+    .backdrop.show { display: block; position: fixed; inset: 0; background: rgba(0,0,0,.5); z-index: 30; }
+    main { padding-top: 56px; }
+    header.hero { padding-top: 20px; }
+  }
+</style>
+</head>
+<body>
+
+<button class="menu-toggle" aria-label="Toggle navigation">&#9776;</button>
+<div class="backdrop"></div>
+
+<div class="layout">
+  <!-- ==================== SIDEBAR ==================== -->
+  <nav class="sidebar" id="sidebar">
+    <div class="brand">
+      <h1><span class="logo">◈</span> RAG Module</h1>
+      <p class="tag">Configurable RAG pipeline · developer docs</p>
+    </div>
+
+    <div class="nav-group">
+      <div class="nav-group-title">Guide</div>
+      <ul>
+        <li><a href="#overview">1 · Overview &amp; Architecture</a></li>
+        <li><a href="#dataflow" class="sub">Data flows</a></li>
+        <li><a href="#patterns" class="sub">Design patterns</a></li>
+        <li><a href="#setup">2 · Setup &amp; Installation</a></li>
+        <li><a href="#modules">3 · Core Modules &amp; Components</a></li>
+        <li><a href="#pipeline" class="sub">RAGPipeline</a></li>
+        <li><a href="#strategies-detail" class="sub">Strategy plugins</a></li>
+        <li><a href="#errors" class="sub">Error taxonomy</a></li>
+        <li><a href="#api">4 · API Reference</a></li>
+        <li><a href="#models" class="sub">Data models</a></li>
+        <li><a href="#endpoints" class="sub">Endpoints</a></li>
+        <li><a href="#examples">5 · Examples &amp; Usage</a></li>
+        <li><a href="#extending" class="sub">Adding a strategy</a></li>
+      </ul>
+    </div>
+  </nav>
+
+  <!-- ==================== MAIN ==================== -->
+  <main>
+    <header class="hero">
+      <div class="eyebrow">Developer Documentation</div>
+      <h1>A RAG pipeline you can rewire, not rewrite</h1>
+      <p class="lede">
+        The RAG Module is a configurable Retrieval-Augmented Generation pipeline. Every stage —
+        parsing, chunking, embedding, vector storage, and retrieval — is an independent, swappable
+        plugin resolved from plain JSON config. Change one stage without touching the others.
+      </p>
+      <div class="pill-row">
+        <span class="pill"><b>Python</b> ≥ 3.13</span>
+        <span class="pill"><b>FastAPI</b> HTTP surface</span>
+        <span class="pill"><b>Qdrant</b> vector store</span>
+        <span class="pill"><b>Azure OpenAI</b> embeddings</span>
+        <span class="pill"><b>Pydantic</b> typed contracts</span>
+        <span class="pill"><b>uv</b> packaging</span>
+      </div>
+    </header>
+
+    <!-- =============================================================== -->
+    <!-- 1. OVERVIEW & ARCHITECTURE                                       -->
+    <!-- =============================================================== -->
+    <section id="overview">
+      <h2><span class="num">1</span> Overview &amp; Architecture <a class="anchor" href="#overview">#</a></h2>
+      <p class="section-sub">Who this is for: developers evaluating the pattern, and engineers extending or operating the pipeline.</p>
+
+      <p>
+        Most RAG systems begin life as a single script: read a file, split it, embed it, push it to a
+        vector DB, query it. That works right up until the first real requirement — "we need PDF as well
+        as DOCX", "we want section-aware chunking", "we need a different embedder in staging", "we might
+        move off Qdrant". At that point a linear script becomes brittle.
+      </p>
+      <p>
+        This project answers that by treating <strong>each pipeline stage as a strategy</strong>. Strategies
+        are resolved from configuration through factories, then orchestrated by a single
+        <code>RAGPipeline</code> class. The payoff is three properties that a script cannot give you:
+      </p>
+
+      <div class="grid">
+        <div class="card">
+          <h4>🧩 Isolation</h4>
+          <p>Each stage has one clear job. Parsers own document understanding; chunkers own chunk formation and metadata; embedders own vectors; vector DBs own persistence; retrieval owns query-time behavior.</p>
+        </div>
+        <div class="card">
+          <h4>🔁 Replaceability</h4>
+          <p>Swap an implementation by changing a config key — no edits to pipeline code. New backends are one <code>register_*()</code> call away.</p>
+        </div>
+        <div class="card">
+          <h4>🧪 Testability</h4>
+          <p>Every strategy is unit-testable in isolation, or exercised end-to-end through the pipeline and the FastAPI surface.</p>
+        </div>
+      </div>
+
+      <h3 id="layers">System layers <a class="anchor" href="#layers">#</a></h3>
+      <p>The codebase is organized into four cooperating layers. Interfaces (abstract base classes) define the
+        contract; concrete strategies implement it; factories map string keys to classes; the pipeline orchestrates.</p>
+
+      <div class="diagram">
+        <pre class="mermaid">
+flowchart TB
+    subgraph CLIENTS["Entry points"]
+        API["main.py&#160;&#8226;&#160;FastAPI app<br/>/index /retrieve /strategies"]
+        CLI["pipeline_main.py<br/>CLI indexer"]
+        SMK["smoke-test.py"]
+    end
+
+    ORCH["RAGPipeline<br/>(rag_pipeline.py)<br/>orchestrator only"]
+
+    subgraph FAC["Factory layer &#8226; key &#8594; class"]
+        PF["parser_factory"]
+        CF["chunking_factory"]
+        EF["embedder_factory"]
+        VF["vector_db_factory"]
+        RF["retrieval_factory"]
+    end
+
+    subgraph STRAT["Strategy layer (pluggable)"]
+        P["DocxParser<br/>(docx)"]
+        C["DocumentChunker<br/>(document)"]
+        E["AzureEmbeddingGenerator<br/>(azure_openai)"]
+        V["QdrantVectorMemory<br/>(qdrant)"]
+        R["SimilarityRetrievalStrategy<br/>(similarity)"]
+    end
+
+    CLIENTS --> ORCH
+    ORCH --> FAC
+    PF --> P
+    CF --> C
+    EF --> E
+    VF --> V
+    RF --> R
+    R -.uses.-> V
+    V --> QDRANT[("Qdrant<br/>vector DB")]
+    E --> AZURE[["Azure OpenAI<br/>embeddings API"]]
+        </pre>
+      </div>
+
+      <h3 id="dataflow">Data flows <a class="anchor" href="#dataflow">#</a></h3>
+      <p>There are two primary flows: <strong>indexing</strong> (ingest a document) and <strong>retrieval</strong>
+        (answer a query). The pipeline only moves data between stages; it never parses, chunks, embeds, or searches itself.</p>
+
+      <h4>Indexing flow</h4>
+      <div class="diagram">
+        <pre class="mermaid">
+sequenceDiagram
+    autonumber
+    participant Client
+    participant API as FastAPI /index
+    participant Pipe as RAGPipeline.indexer
+    participant Parser as DocxParser
+    participant Chunker as DocumentChunker
+    participant Embed as Embedder
+    participant DB as QdrantVectorMemory
+
+    Client->>API: multipart config + file + metadata
+    API->>Pipe: RAGPipeline(config).indexer(file, metadata)
+    Pipe->>Parser: accepts(file)?
+    alt not accepted
+        Parser-->>Pipe: False (+ last_error)
+        Pipe-->>API: raise ParserRejected
+    end
+    Pipe->>Parser: convert(file)
+    Parser-->>Pipe: DocumentParserResult
+    Pipe->>Chunker: chunk(parsed, extra=metadata)
+    alt no chunks
+        Chunker-->>Pipe: []
+        Pipe-->>API: raise NoChunksProduced
+    end
+    loop each chunk
+        Pipe->>Embed: embed(chunk.text)
+        Embed-->>Pipe: vector
+    end
+    Pipe->>DB: add_chunks(chunks)
+    DB-->>Pipe: ok
+    Pipe-->>API: chunks
+    API-->>Client: 200 {chunk_ids, chunks_indexed}
+        </pre>
+      </div>
+
+      <h4>Retrieval flow</h4>
+      <div class="diagram">
+        <pre class="mermaid">
+sequenceDiagram
+    autonumber
+    participant Client
+    participant API as FastAPI /retrieve
+    participant Pipe as RAGPipeline.retrieve
+    participant Embed as Embedder
+    participant Ret as SimilarityRetrievalStrategy
+    participant DB as QdrantVectorMemory
+
+    Client->>API: ?query=&amp;top_k=  + JSON {config, filters}
+    API->>Pipe: RAGPipeline(config).retrieve(query, top_k, filters)
+    Pipe->>Embed: embed(query)
+    Embed-->>Pipe: query vector
+    Pipe->>Ret: retrieve(RetrievalRequest)
+    Ret->>DB: retrieve(vector, top_k, filters)
+    DB-->>Ret: List[ScoredChunk]
+    Ret-->>Pipe: List[ScoredChunk]
+    Pipe-->>API: List[ScoredChunk]
+    API-->>Client: 200 [{chunk, score}, ...]
+        </pre>
+      </div>
+
+      <h3 id="patterns">Design patterns &amp; key decisions <a class="anchor" href="#patterns">#</a></h3>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Pattern / decision</th><th>Where</th><th>Why it matters</th></tr></thead>
+          <tbody>
+            <tr>
+              <td><b>Strategy + Registry + Factory</b></td>
+              <td><code>factory/*.py</code></td>
+              <td>Config keys (<code>"docx"</code>, <code>"qdrant"</code>…) map to classes. The pipeline initializes from JSON instead of importing concrete classes.</td>
+            </tr>
+            <tr>
+              <td><b>Typed stage contracts</b></td>
+              <td>Pydantic <code>data_models.py</code></td>
+              <td><code>DocumentParserResult</code>, <code>Chunk</code>, <code>ScoredChunk</code> are the explicit hand-offs between stages, so a stage can be replaced as long as it honors the contract.</td>
+            </tr>
+            <tr>
+              <td><b>Structured parser output</b></td>
+              <td><code>ParsedContent</code></td>
+              <td>Parsers return <code>mode: "text" | "sections"</code>, not a flat string. Rich parsers can expose sections; chunkers branch on parser intent. See <a href="adr/0001-retrieval-scores-are-raw-and-strategy-specific.md">ADR&nbsp;0001</a>.</td>
+            </tr>
+            <tr>
+              <td><b>Chunk vs ScoredChunk split</b></td>
+              <td><code>retrieval/data_models.py</code></td>
+              <td>A <code>Chunk</code> has query-independent identity; a <code>ScoredChunk</code> pairs it with a query-specific score. Only the vector DB and retrieval layers traffic in scores.</td>
+            </tr>
+            <tr>
+              <td><b>Selective error taxonomy</b></td>
+              <td><code>errors.py</code></td>
+              <td>A typed <code>RAGError</code> hierarchy names failures per stage (<code>ParserRejected</code>, <code>EmbedderFailed</code>…). See <a href="adr/0002-error-taxonomy-mirrors-plugin-stages-selectively.md">ADR&nbsp;0002</a>.</td>
+            </tr>
+            <tr>
+              <td><b>Atomic indexing abort</b></td>
+              <td><code>rag_pipeline.indexer</code></td>
+              <td>If any stage fails, indexing raises and writes nothing — no partial documents land in the vector DB. See <a href="adr/0003-indexing-aborts-atomically-on-stage-failure.md">ADR&nbsp;0003</a>.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- =============================================================== -->
+    <!-- 2. SETUP & INSTALLATION                                          -->
+    <!-- =============================================================== -->
+    <section id="setup">
+      <h2><span class="num">2</span> Setup &amp; Installation <a class="anchor" href="#setup">#</a></h2>
+      <p class="section-sub">From a clean checkout to a running API in five steps.</p>
+
+      <h3>Prerequisites</h3>
+      <ul>
+        <li><b>Python ≥ 3.13</b> (pinned via <code>.python-version</code>)</li>
+        <li><b>uv</b> — the project uses <code>pyproject.toml</code> + <code>uv.lock</code> for reproducible installs</li>
+        <li><b>Docker</b> — to run Qdrant locally via <code>docker-compose.yml</code></li>
+        <li>An <b>Azure OpenAI</b> embedding deployment (for the default <code>azure_openai</code> embedder)</li>
+      </ul>
+
+      <h4>1 · Install dependencies</h4>
+      <pre><span class="code-head"><span class="lang">bash</span></span><code class="language-bash"># create the virtualenv and install locked deps
+uv sync
+
+# ...or with pip, if you prefer
+pip install -e .</code></pre>
+
+      <h4>2 · Configure environment</h4>
+      <p>Copy the sample env file and fill in your credentials:</p>
+      <pre><span class="code-head"><span class="lang">bash</span></span><code class="language-bash">cp .env.sample .env</code></pre>
+
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Variable</th><th>Required</th><th>Purpose</th></tr></thead>
+          <tbody>
+            <tr><td><code>AZURE_EMBEDDER_API_KEY</code></td><td>yes*</td><td>API key for the Azure OpenAI embedding deployment</td></tr>
+            <tr><td><code>AZURE_EMBEDDER_URL</code></td><td>yes*</td><td>Base URL, e.g. <code>https://&lt;resource&gt;.openai.azure.com/openai/v1/</code></td></tr>
+            <tr><td><code>AZURE_EMBEDDER_MODEL</code></td><td>yes*</td><td>Embedding deployment/model name, e.g. <code>text-embedding-3-small</code></td></tr>
+            <tr><td><code>QDRANT_URL</code></td><td>no</td><td>Qdrant server URL. Defaults to <code>http://localhost:6333</code></td></tr>
+            <tr><td><code>QDRANT_API_KEY</code></td><td>no</td><td>API key for secured Qdrant instances</td></tr>
+            <tr><td><code>QDRANT_COLLECTION</code></td><td>no</td><td>Helper value used by <code>smoke-test.py</code></td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p style="font-size:13px;color:var(--muted)">* Required only when using the default <code>azure_openai</code> embedder. The embedder reads these at construction and raises <code>ValueError</code> if any are missing.</p>
+
+      <h4>3 · Start Qdrant</h4>
+      <pre><span class="code-head"><span class="lang">bash</span></span><code class="language-bash">docker compose up -d
+# Qdrant REST API is now on http://localhost:6333</code></pre>
+      <div class="callout ok">
+        <span class="title">Collection auto-creation</span>
+        <code>QdrantVectorMemory</code> creates its collection on first use
+        (<code>create_collection_if_not_exists=True</code>), defaulting to name <code>memory_chunks</code>,
+        vector size <code>1536</code>, cosine distance. Keep the embedding dimension aligned with the vector size.
+      </div>
+
+      <h4>4 · Run the API</h4>
+      <pre><span class="code-head"><span class="lang">bash</span></span><code class="language-bash">uvicorn main:app --reload
+# API on http://localhost:8000  ·  interactive docs at /docs
+# optional dashboard at http://localhost:8000/dashboard</code></pre>
+
+      <h4>5 · Verify</h4>
+      <pre><span class="code-head"><span class="lang">bash</span></span><code class="language-bash">curl http://localhost:8000/strategies</code></pre>
+
+      <h3>Running the test suite</h3>
+      <pre><span class="code-head"><span class="lang">bash</span></span><code class="language-bash">pytest tests -q
+# suites: parser, chunking, pipeline, factory, vector_db,
+#         storage, retrieval, app (API), cli, errors</code></pre>
+    </section>
+
+    <!-- =============================================================== -->
+    <!-- 3. CORE MODULES & COMPONENTS                                     -->
+    <!-- =============================================================== -->
+    <section id="modules">
+      <h2><span class="num">3</span> Core Modules &amp; Components <a class="anchor" href="#modules">#</a></h2>
+      <p class="section-sub">Everything reusable lives under <code>memory_module/</code>; the repo root holds entry points.</p>
+
+      <h3>Repository map</h3>
+      <pre><span class="code-head"><span class="lang">text</span></span><code class="language-text">RAG_module/
+├── main.py                     # FastAPI app: /strategies /index /retrieve /dashboard
+├── pipeline_main.py            # CLI: index one document from the shell
+├── smoke-test.py               # end-to-end smoke check
+├── docker-compose.yml          # local Qdrant
+├── dashboard/                  # static UI served at /dashboard
+├── docs/                       # ADRs, PRDs, agent/domain docs, this file
+└── memory_module/
+    ├── rag_pipeline.py         # RAGPipeline orchestrator
+    ├── errors.py               # RAGError taxonomy
+    ├── parser/                 # DocumentParserBase, DocxParser, parser models
+    ├── chunking/               # BaseChunker, DocumentChunker, Chunk models
+    ├── embedder/               # BaseEmbedder, AzureEmbeddingGenerator
+    ├── vector_db/              # BaseVectorMemory, QdrantVectorMemory
+    ├── retrieval/              # BaseRetrievalStrategy, SimilarityRetrievalStrategy, models
+    ├── factory/                # one registry+factory per stage
+    ├── storage/                # local file storage helpers
+    └── utils/                  # FileOps (validation, hashing)</code></pre>
+
+      <h3 id="pipeline">The orchestrator: <code>RAGPipeline</code> <a class="anchor" href="#pipeline">#</a></h3>
+      <p>
+        <code>memory_module/rag_pipeline.py</code> is the heart of the system, and deliberately thin. Its constructor
+        resolves each configured strategy through <code>_resolve_component()</code>; a stage whose
+        <code>&lt;stage&gt;_key</code> is absent resolves to <code>None</code> and is simply unavailable. Two public
+        methods drive the flows: <code>indexer()</code> and <code>retrieve()</code>.
+      </p>
+      <div class="callout">
+        <span class="title">Design rule</span>
+        <code>RAGPipeline</code> must only orchestrate. If it starts accumulating parsing or chunking logic, the
+        abstraction is drifting — push that logic back into the owning strategy.
+      </div>
+
+      <h4>How a component is resolved</h4>
+      <pre><span class="code-head"><span class="lang">python</span></span><code class="language-python"># config drives resolution; missing key => component is None
+strategy_key    = config.get(f"{base_key}_key")      # e.g. "parser_key": "docx"
+strategy_kwargs = config.get(f"{base_key}_kwargs", {})  # optional constructor kwargs
+component       = factory(strategy_key, **strategy_kwargs)
+# a bad key or a construction failure is normalized into ConfigError</code></pre>
+
+      <h3 id="strategies-detail">Strategy plugins <a class="anchor" href="#strategies-detail">#</a></h3>
+
+      <div class="grid">
+        <div class="card"><h4>Parser <span class="badge">docx</span></h4><p>Turns an uploaded file into a <code>DocumentParserResult</code>. <code>accepts()</code> is a pre-flight check; <code>convert()</code> does the work.</p></div>
+        <div class="card"><h4>Chunker <span class="badge">document</span></h4><p>Consumes parser output, produces normalized <code>Chunk</code>s. Owns chunk IDs and chunk metadata.</p></div>
+        <div class="card"><h4>Embedder <span class="badge">azure_openai</span></h4><p><code>embed(text)</code> → dense vector. Provider details are hidden behind the interface.</p></div>
+        <div class="card"><h4>Vector DB <span class="badge">qdrant</span></h4><p>Persistence + search: <code>add_chunks</code>, <code>retrieve</code>, <code>delete</code>.</p></div>
+        <div class="card"><h4>Retrieval <span class="badge">similarity</span></h4><p>Query-time behavior on top of the vector DB. Receives a <code>vector_db</code> instance.</p></div>
+      </div>
+
+      <h4>Parser — <code>DocxParser</code></h4>
+      <p>
+        Implements <code>DocumentParserBase</code>. <code>accepts()</code> validates the extension via
+        <code>FileOps</code> and records <code>last_error</code> on rejection. <code>convert()</code> walks the DOCX
+        paragraphs, groups them into <code>ParsedSection</code>s by heading style, computes a content-hash
+        <code>document_id</code> (<code>doc_&lt;hash&gt;</code>), and emits <code>mode="sections"</code> when headings exist,
+        otherwise <code>mode="text"</code>.
+      </p>
+
+      <h4>Chunker — <code>DocumentChunker</code></h4>
+      <p>
+        Wraps <a href="https://github.com/chonkie-ai/chonkie">chonkie</a>'s <code>TokenChunker</code>
+        (defaults: <code>chunk_size=2048</code>, <code>chunk_overlap=128</code>, <code>tokenizer="character"</code>). It
+        chunks the full text in <code>text</code> mode, or per-section in <code>sections</code> mode. Chunk identity is a
+        deterministic <code>uuid5</code> of <code>&lt;document_id&gt;_chunk_&lt;i&gt;</code>, so re-indexing the same document
+        overwrites rather than duplicates. Caller <code>tags</code> from request metadata flow onto each chunk.
+      </p>
+
+      <h4>Embedder — <code>AzureEmbeddingGenerator</code></h4>
+      <p>
+        Uses the OpenAI SDK pointed at an Azure endpoint. <code>embed(text)</code> returns a list of vectors
+        (one per input). The pipeline flattens a single-item batch — <code>if embedding[0] is a list: embedding = embedding[0]</code>
+        — so both list-of-vector and single-vector embedders interoperate.
+      </p>
+
+      <h4>Vector DB — <code>QdrantVectorMemory</code></h4>
+      <p>
+        Implements <code>BaseVectorMemory</code>. Stores each chunk as a Qdrant point keyed by <code>chunk_id</code>,
+        with <code>text</code>, serialized <code>metadata</code>, and <code>token_count</code> in the payload.
+        <code>retrieve()</code> translates <code>{"metadata.tags": "finance"}</code>-style filters into Qdrant
+        <code>FieldCondition</code>s and returns <code>ScoredChunk</code>s carrying the raw similarity score.
+      </p>
+
+      <h4>Retrieval — <code>SimilarityRetrievalStrategy</code></h4>
+      <p>
+        The thinnest strategy: it forwards the <code>RetrievalRequest</code> (embedding, <code>top_k</code>, filters)
+        straight to <code>vector_db.retrieve()</code>. It exists as a seam so hybrid search, reranking, or fusion can
+        be dropped in later without touching the pipeline or API.
+      </p>
+
+      <h3 id="errors">Error taxonomy <a class="anchor" href="#errors">#</a></h3>
+      <p>
+        All pipeline failures subclass <code>RAGError</code> and carry a stable <code>code</code> string, so callers can
+        branch on <code>err.code</code> rather than parsing messages. The FastAPI layer surfaces these as
+        <code>400</code> responses with the message in <code>detail</code>.
+      </p>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Exception</th><th><code>code</code></th><th>Raised when</th></tr></thead>
+          <tbody>
+            <tr><td><code>ConfigError</code></td><td><code>config_error</code></td><td>Config isn't a dict, a key isn't a string, an invalid key, or a strategy fails to construct.</td></tr>
+            <tr><td><code>ParserRejected</code></td><td><code>parser_rejected</code></td><td><code>parser.accepts(document)</code> returns False (unsupported document type).</td></tr>
+            <tr><td><code>NoChunksProduced</code></td><td><code>no_chunks_produced</code></td><td>The chunker returns an empty list for the document.</td></tr>
+            <tr><td><code>EmbedderFailed</code></td><td><code>embedder_failed</code></td><td>The embedder raises while embedding a chunk or the query.</td></tr>
+            <tr><td><code>VectorDBFailed</code></td><td><code>vector_db_failed</code></td><td>The vector DB raises during <code>add_chunks</code> or retrieval.</td></tr>
+            <tr><td><code>InvalidQuery</code></td><td><code>invalid_query</code></td><td>Retrieval is called with an empty / non-string query.</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="callout warn">
+        <span class="title">Parser rejection ≠ parser failure</span>
+        A rejection is a parser's pre-flight refusal to handle a document (<code>accepts()</code> → False). A failure is
+        a parser that accepted a document and then could not parse it. The taxonomy keeps these distinct on purpose.
+      </div>
+    </section>
+
+    <!-- =============================================================== -->
+    <!-- 4. API REFERENCE                                                 -->
+    <!-- =============================================================== -->
+    <section id="api">
+      <h2><span class="num">4</span> API Reference <a class="anchor" href="#api">#</a></h2>
+      <p class="section-sub">HTTP surface exposed by <code>main.py</code>. Base URL: <code>http://localhost:8000</code>.</p>
+
+      <div class="callout">
+        <span class="title">Authentication</span>
+        The application itself ships without an auth layer — secure it behind your own gateway for anything beyond local
+        use. Upstream credentials (Azure key, optional Qdrant key) are read from environment variables, never from the
+        request.
+      </div>
+
+      <h3 id="models">Data models <a class="anchor" href="#models">#</a></h3>
+      <p>These Pydantic models are the contracts between stages and the shapes returned over HTTP.</p>
+      <pre><span class="code-head"><span class="lang">python</span></span><code class="language-python"># ---- parser output ----
+class ParsedSection(BaseModel):
+    title: str | None = None
+    text: str
+    level: int | None = None
+    metadata: dict[str, Any] | None = None
+
+class ParsedContent(BaseModel):
+    mode: Literal["text", "sections"]
+    text: str
+    sections: list[ParsedSection]
+
+class FileMetadata(BaseModel):
+    document_id: str
+    document_title: str
+
+class DocumentParserResult(BaseModel):
+    content: ParsedContent
+    file_metadata: FileMetadata | None = None
+
+# ---- indexed content ----
+class ChunkMetadata(BaseModel):
+    document_id: str
+    document_title: str | None = None
+    tags: list[str] | None = None
+    chunk_version: str | None = None
+    created_at: datetime            # defaults to utcnow()
+
+class Chunk(BaseModel):
+    chunk_id: str
+    text: str
+    embedding: list[float] = []
+    metadata: ChunkMetadata
+    token_count: int | None = None
+
+# ---- retrieval ----
+class RetrievalRequest(BaseModel):
+    query_text: str
+    query_embedding: list[float]
+    top_k: int = 5
+    filters: dict | None = None
+
+class ScoredChunk(BaseModel):
+    chunk: Chunk
+    score: float                    # raw, strategy-specific similarity score</code></pre>
+
+      <h3 id="endpoints">Endpoints <a class="anchor" href="#endpoints">#</a></h3>
+
+      <!-- /strategies -->
+      <div class="endpoint"><span class="method get">GET</span><span class="path">/strategies</span></div>
+      <p>Discover all registered strategies per stage. Selection mode is always <code>single</code> — one strategy per stage.</p>
+      <pre><span class="code-head"><span class="lang">json</span></span><code class="language-json">{
+  "parsers":     { "selection_mode": "single", "strategies": ["docx"] },
+  "chunkers":    { "selection_mode": "single", "strategies": ["document"] },
+  "embedders":   { "selection_mode": "single", "strategies": ["azure_openai"] },
+  "retrievals":  { "selection_mode": "single", "strategies": ["similarity"] },
+  "vector_dbs":  { "selection_mode": "single", "strategies": ["qdrant"] }
+}</code></pre>
+
+      <!-- /strategies/{component} -->
+      <div class="endpoint"><span class="method get">GET</span><span class="path">/strategies/{component}</span></div>
+      <p>Strategies for one component. <code>component</code> ∈ <code>parsers · chunkers · embedders · retrievals · vector_dbs</code>. Unknown components return <code>404</code>.</p>
+      <pre><span class="code-head"><span class="lang">json</span></span><code class="language-json">{ "component": "parsers", "selection_mode": "single", "strategies": ["docx"] }</code></pre>
+
+      <!-- /index -->
+      <div class="endpoint"><span class="method post">POST</span><span class="path">/index</span></div>
+      <p>Parse → chunk → embed → store a document. Expects <code>multipart/form-data</code>.</p>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Field</th><th>Type</th><th>Required</th><th>Notes</th></tr></thead>
+          <tbody>
+            <tr><td><code>config</code></td><td>string (JSON object)</td><td>yes</td><td>Must include <code>parser_key</code>, <code>chunker_key</code>, <code>embedder_key</code>, <code>vector_db_key</code>.</td></tr>
+            <tr><td><code>file</code></td><td>file</td><td>yes</td><td>The document to index.</td></tr>
+            <tr><td><code>metadata</code></td><td>string (JSON object)</td><td>no</td><td>Caller metadata; the default chunker reads <code>tags</code>.</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <h4>Response <code>200</code></h4>
+      <pre><span class="code-head"><span class="lang">json</span></span><code class="language-json">{
+  "message": "Document indexed successfully",
+  "filename": "sample.docx",
+  "parser": true, "chunker": true, "embedder": true, "vector_db": true,
+  "chunks_indexed": 7,
+  "chunk_ids": ["b1c1...", "…"]
+}</code></pre>
+      <div class="callout danger">
+        <span class="title">Atomic on failure</span>
+        Any stage failure aborts the whole request with <code>400</code> and writes nothing to the vector DB — no partial
+        documents. The <code>detail</code> field carries the underlying <code>RAGError</code> message.
+      </div>
+
+      <!-- /retrieve -->
+      <div class="endpoint"><span class="method post">POST</span><span class="path">/retrieve?query=&amp;top_k=</span></div>
+      <p>Embed a query and fetch the most relevant chunks. <code>query</code> and <code>top_k</code> are <b>query parameters</b>; <code>config</code> and <code>filters</code> go in the <b>JSON body</b>.</p>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Parameter</th><th>In</th><th>Required</th><th>Notes</th></tr></thead>
+          <tbody>
+            <tr><td><code>query</code></td><td>query string</td><td>yes</td><td>Non-empty; empty raises <code>InvalidQuery</code>.</td></tr>
+            <tr><td><code>top_k</code></td><td>query string</td><td>no</td><td>Defaults to <code>5</code>.</td></tr>
+            <tr><td><code>config</code></td><td>body</td><td>yes</td><td>Needs <code>embedder_key</code>, <code>vector_db_key</code>, <code>retrieval_key</code>.</td></tr>
+            <tr><td><code>filters</code></td><td>body</td><td>no</td><td>Passed through to the vector DB, e.g. <code>{"metadata.tags": "finance"}</code>.</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <h4>Response <code>200</code> — <code>List[ScoredChunk]</code></h4>
+      <pre><span class="code-head"><span class="lang">json</span></span><code class="language-json">[
+  {
+    "chunk": {
+      "chunk_id": "b1c1a2e0-…",
+      "text": "Quarterly finance summary …",
+      "embedding": [0.01, -0.02, "…"],
+      "metadata": {
+        "document_id": "doc_9f2c…",
+        "document_title": "q3-report",
+        "tags": ["finance", "policy"],
+        "chunk_version": "doc_9f2c…_chunk_1",
+        "created_at": "2026-07-01T10:00:00"
+      },
+      "token_count": 512
+    },
+    "score": 0.8123
+  }
+]</code></pre>
+    </section>
+
+    <!-- =============================================================== -->
+    <!-- 5. EXAMPLES & USAGE                                              -->
+    <!-- =============================================================== -->
+    <section id="examples">
+      <h2><span class="num">5</span> Examples &amp; Usage <a class="anchor" href="#examples">#</a></h2>
+      <p class="section-sub">Copy-pasteable flows for HTTP, the CLI, and direct Python use.</p>
+
+      <h3>Minimal configs</h3>
+      <pre><span class="code-head"><span class="lang">json</span></span><code class="language-json">// indexing config
+{ "parser_key": "docx", "chunker_key": "document",
+  "embedder_key": "azure_openai", "vector_db_key": "qdrant" }
+
+// retrieval config
+{ "embedder_key": "azure_openai", "vector_db_key": "qdrant",
+  "retrieval_key": "similarity" }</code></pre>
+
+      <h4>Override a strategy's constructor with <code>*_kwargs</code></h4>
+      <pre><span class="code-head"><span class="lang">json</span></span><code class="language-json">{
+  "parser_key": "docx",
+  "chunker_key": "document",
+  "chunker_kwargs": { "chunk_size": 1024, "chunk_overlap": 64 },
+  "embedder_key": "azure_openai",
+  "vector_db_key": "qdrant",
+  "vector_db_kwargs": { "collection_name": "finance_docs", "vector_size": 1536 }
+}</code></pre>
+
+      <h3>Index a document over HTTP</h3>
+      <pre><span class="code-head"><span class="lang">bash</span></span><code class="language-bash">curl -X POST http://localhost:8000/index \
+  -F 'config={"parser_key":"docx","chunker_key":"document","embedder_key":"azure_openai","vector_db_key":"qdrant"}' \
+  -F 'metadata={"tags":["finance","policy"]}' \
+  -F 'file=@/absolute/path/to/sample.docx'</code></pre>
+
+      <h3>Retrieve over HTTP (with a tag filter)</h3>
+      <pre><span class="code-head"><span class="lang">bash</span></span><code class="language-bash">curl -X POST "http://localhost:8000/retrieve?query=finance%20summary&amp;top_k=3" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "config": {
+      "embedder_key": "azure_openai",
+      "vector_db_key": "qdrant",
+      "retrieval_key": "similarity"
+    },
+    "filters": { "metadata.tags": "finance" }
+  }'</code></pre>
+
+      <h3>Index from the command line</h3>
+      <pre><span class="code-head"><span class="lang">bash</span></span><code class="language-bash">python pipeline_main.py \
+  '{"parser_key":"docx","chunker_key":"document","embedder_key":"azure_openai","vector_db_key":"qdrant"}' \
+  './doctor_patient_transcript.docx' \
+  '{"tags":["medical"]}'</code></pre>
+
+      <h3>Drive the pipeline directly in Python</h3>
+      <pre><span class="code-head"><span class="lang">python</span></span><code class="language-python">from memory_module.rag_pipeline import RAGPipeline
+
+pipeline = RAGPipeline({
+    "embedder_key": "azure_openai",
+    "vector_db_key": "qdrant",
+    "retrieval_key": "similarity",
+})
+
+results = pipeline.retrieve(
+    query="what were the Q3 finance numbers?",
+    top_k=3,
+    filters={"metadata.tags": "finance"},
+)
+
+for scored in results:            # List[ScoredChunk]
+    print(f"{scored.score:.4f}  {scored.chunk.text[:80]}")</code></pre>
+
+      <h3 id="extending">Adding a new strategy <a class="anchor" href="#extending">#</a></h3>
+      <p>The extension contract is intentionally small: implement one interface, register one key. Example — a PDF parser.</p>
+      <pre><span class="code-head"><span class="lang">python</span></span><code class="language-python"># 1. implement the interface
+from fastapi import UploadFile
+from memory_module.parser.document_parser_base import DocumentParserBase
+from memory_module.parser.data_models import DocumentParserResult
+
+class PdfParser(DocumentParserBase):
+    def accepts(self, file_stream: UploadFile) -> bool:
+        return (file_stream.filename or "").lower().endswith(".pdf")
+
+    def convert(self, file_stream: UploadFile) -> DocumentParserResult:
+        ...  # return a DocumentParserResult
+
+# 2. register one key
+from memory_module.factory.parser_factory import register_parser
+register_parser("pdf", PdfParser)
+
+# 3. activate it via config — no pipeline or API changes needed
+#    { "parser_key": "pdf", ... }</code></pre>
+      <p>The same three steps apply to every stage via its factory: <code>register_chunker</code>,
+        <code>register_embedder</code>, <code>register_vector_db</code>, <code>register_retrieval_strategy</code>. Honor
+        the base interface and the typed contracts, and the rest of the pipeline needs no changes.</p>
+
+      <div class="callout ok">
+        <span class="title">Ownership boundaries when extending</span>
+        Parsers own document understanding · chunkers own chunk formation and metadata · embedders own vectors ·
+        vector DBs own persistence · retrieval owns query-time behavior · <code>RAGPipeline</code> only orchestrates.
+      </div>
+
+      <footer class="doc-footer">
+        <p>Generated from source: <code>memory_module/</code>, <code>main.py</code>, <code>pipeline_main.py</code>,
+        and the ADRs under <code>docs/adr/</code>. Stable to build on today: factory-based resolution, indexing and
+        retrieval flows, the Qdrant path, and the DOCX baseline. Still evolving: richer parser structures, richer metadata
+        filters, and additional strategies.</p>
+      </footer>
+    </section>
+  </main>
+</div>
+
+<script>
+  // Syntax highlighting
+  document.querySelectorAll('pre code').forEach((el) => window.hljs && hljs.highlightElement(el));
+
+  // Mobile nav toggle
+  const sidebar = document.getElementById('sidebar');
+  const toggle = document.querySelector('.menu-toggle');
+  const backdrop = document.querySelector('.backdrop');
+  const closeNav = () => { sidebar.classList.remove('open'); backdrop.classList.remove('show'); };
+  toggle.addEventListener('click', () => { sidebar.classList.toggle('open'); backdrop.classList.toggle('show'); });
+  backdrop.addEventListener('click', closeNav);
+  sidebar.querySelectorAll('a').forEach(a => a.addEventListener('click', () => { if (window.innerWidth <= 900) closeNav(); }));
+
+  // Scroll-spy: highlight active nav link
+  const links = [...document.querySelectorAll('nav.sidebar a')];
+  const byHash = Object.fromEntries(links.map(a => [a.getAttribute('href'), a]));
+  const targets = [...document.querySelectorAll('section[id], h3[id]')];
+  const spy = new IntersectionObserver((entries) => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        links.forEach(l => l.classList.remove('active'));
+        const link = byHash['#' + e.target.id];
+        if (link) link.classList.add('active');
+      }
+    });
+  }, { rootMargin: '-10% 0px -80% 0px', threshold: 0 });
+  targets.forEach(t => spy.observe(t));
+</script>
+</body>
+</html>

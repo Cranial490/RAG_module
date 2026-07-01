@@ -2,7 +2,7 @@ from io import BytesIO
 
 import pytest
 
-from memory_module.parser.file_operations import FileOps
+from memory_module.utils.file_operations import FileOps
 from tests.conftest import build_docx_bytes, make_upload_file
 
 
