@@ -64,6 +64,14 @@ def test_add_chunks_serializes_current_payload_shape(mock_qdrant_client, sample_
     assert points[0].payload["metadata"]["document_id"] == "doc-1"
 
 
+def test_add_chunks_does_not_delete_on_success(mock_qdrant_client, sample_chunks):
+    memory = QdrantVectorMemory(collection_name="test_collection", vector_size=2)
+
+    memory.add_chunks(sample_chunks)
+
+    mock_qdrant_client.delete.assert_not_called()
+
+
 def test_retrieve_returns_scored_chunks_with_scores(mock_qdrant_client):
     mock_qdrant_client.search.return_value = [
         SimpleNamespace(
@@ -142,5 +150,29 @@ def test_add_chunks_wraps_client_errors(mock_qdrant_client, sample_chunks):
     memory = QdrantVectorMemory(collection_name="test_collection", vector_size=2)
 
     with pytest.raises(RuntimeError, match="Failed to add chunks to Qdrant"):
+        memory.add_chunks(sample_chunks)
+
+
+def test_add_chunks_compensates_by_deleting_batch_ids_on_upsert_failure(
+    mock_qdrant_client, sample_chunks
+):
+    mock_qdrant_client.upsert.side_effect = Exception("boom")
+    memory = QdrantVectorMemory(collection_name="test_collection", vector_size=2)
+
+    with pytest.raises(RuntimeError, match="Failed to add chunks to Qdrant"):
+        memory.add_chunks(sample_chunks)
+
+    mock_qdrant_client.delete.assert_called_once()
+    assert mock_qdrant_client.delete.call_args.kwargs["points_selector"] == ["chunk-1"]
+
+
+def test_add_chunks_surfaces_original_error_when_compensating_delete_also_fails(
+    mock_qdrant_client, sample_chunks
+):
+    mock_qdrant_client.upsert.side_effect = Exception("upsert boom")
+    mock_qdrant_client.delete.side_effect = Exception("delete boom")
+    memory = QdrantVectorMemory(collection_name="test_collection", vector_size=2)
+
+    with pytest.raises(RuntimeError, match="upsert boom"):
         memory.add_chunks(sample_chunks)
 
