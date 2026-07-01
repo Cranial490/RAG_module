@@ -2,10 +2,12 @@ import pytest
 
 from memory_module.chunking.data_models import Chunk, ChunkMetadata
 from memory_module.errors import (
+    ChunkerFailed,
     ConfigError,
     EmbedderFailed,
     InvalidQuery,
     NoChunksProduced,
+    ParserFailed,
     ParserRejected,
     VectorDBFailed,
 )
@@ -319,6 +321,66 @@ def test_indexer_raises_vector_db_failed(upload_docx):
         pipeline.indexer(upload_docx)
 
     assert exc_info.value.__cause__ is original
+
+
+def test_indexer_raises_parser_failed_when_convert_blows_up(upload_docx):
+    original = RuntimeError("zip corruption inside docx")
+
+    class FailingConvertParser:
+        last_error = None
+
+        def __init__(self):
+            self.calls = []
+
+        def accepts(self, file_stream):
+            self.calls.append("accepts")
+            return True
+
+        def convert(self, file_stream):
+            self.calls.append("convert")
+            raise original
+
+    pipeline = RAGPipeline({})
+    pipeline.parser = FailingConvertParser()
+    pipeline.chunker = StubChunker([])
+    pipeline.embedder = StubEmbedder([0.1])
+    pipeline.vector_db = StubVectorDB()
+
+    with pytest.raises(ParserFailed) as exc_info:
+        pipeline.indexer(upload_docx)
+
+    assert exc_info.value.__cause__ is original
+    assert not isinstance(exc_info.value, ParserRejected)
+    assert pipeline.vector_db.added_chunks is None
+
+
+def test_indexer_raises_chunker_failed_when_chunk_blows_up(upload_docx):
+    parsed_document = DocumentParserResult(
+        content=ParsedContent(mode="text", text="hello world", sections=[]),
+        file_metadata=FileMetadata(document_id="doc_1", document_title="Doc 1"),
+    )
+
+    original = ValueError("Unsupported parsed content mode: weird")
+
+    class FailingChunker:
+        def __init__(self):
+            self.calls = []
+
+        def chunk(self, parsed_document, extra):
+            self.calls.append(("chunk", parsed_document, extra))
+            raise original
+
+    pipeline = RAGPipeline({})
+    pipeline.parser = StubParser(parsed_document)
+    pipeline.chunker = FailingChunker()
+    pipeline.embedder = StubEmbedder([0.1])
+    pipeline.vector_db = StubVectorDB()
+
+    with pytest.raises(ChunkerFailed) as exc_info:
+        pipeline.indexer(upload_docx)
+
+    assert exc_info.value.__cause__ is original
+    assert pipeline.vector_db.added_chunks is None
 
 
 @pytest.mark.parametrize(

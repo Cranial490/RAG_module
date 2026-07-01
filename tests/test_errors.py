@@ -3,7 +3,14 @@ import inspect
 import pytest
 
 import memory_module.errors as errors_module
-from memory_module.errors import ConfigError, InvalidQuery, NoChunksProduced, RAGError
+from memory_module.errors import (
+    ChunkerFailed,
+    ConfigError,
+    InvalidQuery,
+    NoChunksProduced,
+    ParserFailed,
+    RAGError,
+)
 
 
 def test_all_subclasses_inherit_rag_error_and_have_code():
@@ -35,3 +42,20 @@ def test_no_chunks_produced_is_rag_error():
     exc = NoChunksProduced("no chunks")
     assert isinstance(exc, RAGError)
     assert NoChunksProduced.code == "no_chunks_produced"
+
+
+def test_parser_failed_is_rag_error():
+    exc = ParserFailed("parser blew up")
+    assert isinstance(exc, RAGError)
+    assert ParserFailed.code == "parser_failed"
+
+
+def test_chunker_failed_is_rag_error():
+    exc = ChunkerFailed("chunker blew up")
+    assert isinstance(exc, RAGError)
+    assert ChunkerFailed.code == "chunker_failed"
+
+
+def test_parser_failed_and_parser_rejected_are_distinct():
+    assert ParserFailed is not errors_module.ParserRejected
+    assert ParserFailed.code != errors_module.ParserRejected.code

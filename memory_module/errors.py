@@ -14,6 +14,14 @@ class ParserRejected(RAGError):
     code = "parser_rejected"
 
 
+class ParserFailed(RAGError):
+    code = "parser_failed"
+
+
+class ChunkerFailed(RAGError):
+    code = "chunker_failed"
+
+
 class EmbedderFailed(RAGError):
     code = "embedder_failed"
 
