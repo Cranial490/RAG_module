@@ -12,10 +12,14 @@ from memory_module.factory.embedder_factory import list_embedders
 from memory_module.factory.parser_factory import list_parsers
 from memory_module.factory.retrieval_factory import list_retrieval_strategies
 from memory_module.factory.vector_db_factory import list_vector_dbs
+from memory_module.logging_config import configure_logging
+from memory_module.logging_correlation import RequestIDMiddleware
 from memory_module.rag_pipeline import RAGPipeline
 
 
+configure_logging()
 app = FastAPI()
+app.add_middleware(RequestIDMiddleware)
 BASE_DIR = Path(__file__).resolve().parent
 DASHBOARD_DIR = BASE_DIR / "dashboard"
 
